@@ -69,6 +69,9 @@ GROUPS = [
 ]
 _SYN = {w: g for g in GROUPS for w in g}
 
+# Words people add that codes rarely contain. Only dropped when nothing matches every word.
+FILLER = {"complication", "complications", "problem", "problems", "issue", "issues"}
+
 
 def _expand_query(query: str) -> list[list[str]]:
     """Return, per required term, the list of alternative word-prefixes that satisfy it."""
@@ -150,10 +153,8 @@ class ICD10Index:
         audit.log_call("icd10_describe", {"op": "describe"}, result["status"])
         return result
 
-    def search(self, query: str, limit: int = 10, synonyms: bool = True) -> list[Entry]:
-        terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
-        if not terms:
-            return []
+    def _ranked(self, terms: list[list[str]]) -> list[Entry]:
+        """All entries that satisfy every term, best first."""
         originals = [alts[0] for alts in terms]
         scored = []
         for entry, words in zip(self.entries, self._words):
@@ -162,6 +163,38 @@ class ICD10Index:
                 exact = sum(1 for t in originals if t in words)
                 scored.append((-direct, -exact, len(entry.description), entry.code, entry))
         scored.sort(key=lambda x: x[:4])
-        results = [s[4] for s in scored[:limit]]
+        return [s[4] for s in scored]
+
+    def search(self, query: str, limit: int = 10, synonyms: bool = True) -> list[Entry]:
+        """Strict search: every word must match."""
+        terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
+        if not terms:
+            return []
+        results = self._ranked(terms)[:limit]
         audit.log_call("icd10_search", {"query_chars": len(query)}, f"{len(results)} results")
         return results
+
+    def search_relaxed(self, query: str, limit: int = 10, synonyms: bool = True) -> tuple[list[Entry], list[str]]:
+        """Like search, but if nothing matches every word, retry without the words that get in
+        the way. Returns (results, ignored_words) so the caller can say what was dropped.
+        Only two things are ever dropped: filler words like 'complications', and words that match
+        no code at all (typos, junk). It never drops a real word to force an answer."""
+        terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
+        if not terms:
+            return [], []
+        results = self._ranked(terms)
+        ignored: list[str] = []
+        if not results and len(terms) > 1:
+            drop = [t for t in terms if t[0] in FILLER]
+            base = [t for t in terms if t not in drop]
+            dead = [t for t in base if not self._ranked([t])]
+            base = [t for t in base if t not in dead]
+            ignored = [t[0] for t in terms if t in drop or t in dead]
+            if base and ignored:
+                results = self._ranked(base)
+            if not results:
+                ignored = []
+        results = results[:limit]
+        audit.log_call("icd10_search", {"query_chars": len(query)},
+                       f"{len(results)} results, {len(ignored)} words ignored")
+        return results, ignored

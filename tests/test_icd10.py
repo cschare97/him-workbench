@@ -108,3 +108,50 @@ def test_no_false_synonym_hits(syn_idx):
 def test_typed_word_is_the_direct_term(syn_idx):
     # typing "renal" should rank the renal entry above the kidney-only entry
     assert [e.code for e in syn_idx.search("renal")] == ["A100", "A101"]
+
+
+DIAB_FIXTURE = """\
+E110    Test diabetes type 2 with hyperosmolarity
+E1121   Test diabetes type 2 with diabetic nephropathy kidney
+E1122   Test diabetes type 2 with diabetic chronic kidney disease
+E1129   Test diabetes type 2 with other diabetic kidney complication
+E1165   Test diabetes type 2 with hyperglycemia
+"""
+
+
+@pytest.fixture
+def diab_idx(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(DIAB_FIXTURE)
+    return ICD10Index.from_file(p)
+
+
+def test_strict_search_misses_natural_phrase(diab_idx):
+    assert diab_idx.search("type 2 diabetes kidney complications") == []
+
+
+def test_relaxed_drops_filler_word_and_says_so(diab_idx):
+    res, ignored = diab_idx.search_relaxed("type 2 diabetes kidney complications")
+    assert {e.code for e in res} == {"E1121", "E1122", "E1129"}
+    assert ignored == ["complications"]
+
+
+def test_relaxed_drops_word_that_matches_nothing(diab_idx):
+    res, ignored = diab_idx.search_relaxed("diabetes kidney xyzzy")
+    assert {e.code for e in res} == {"E1121", "E1122", "E1129"} and ignored == ["xyzzy"]
+
+
+def test_relaxed_leaves_good_searches_alone(diab_idx):
+    res, ignored = diab_idx.search_relaxed("diabetes kidney")
+    assert len(res) == 3 and ignored == []
+
+
+def test_relaxed_gives_up_cleanly(diab_idx):
+    assert diab_idx.search_relaxed("xyzzy plugh") == ([], [])
+    assert diab_idx.search_relaxed("") == ([], [])
+
+
+def test_relaxed_never_drops_a_real_word(diab_idx):
+    # real words that never appear together: say nothing found, do not answer for part of the question
+    assert diab_idx.search_relaxed("hyperglycemia nephropathy") == ([], [])
+    assert diab_idx.search_relaxed("diabetes kidney hyperglycemia") == ([], [])

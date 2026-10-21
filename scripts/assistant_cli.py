@@ -38,6 +38,8 @@ def show_result(name: str, r: dict) -> None:
         print(f"  [result] ERROR: {r['error']}")
     elif name == "search_icd10":
         print(f"  [result] {len(r['results'])} code(s) from {r.get('source_file')}")
+        if r.get("ignored_words"):
+            print(f"    (no code matched every word; ignored: {', '.join(r['ignored_words'])})")
         for x in r["results"]:
             print(f"    {x['code']:9} {x['description']}")
     elif name == "lookup_icd10":
@@ -45,7 +47,7 @@ def show_result(name: str, r: dict) -> None:
     elif name in ("scan_duplicates", "compare_patients"):
         pairs = r["pairs"] if name == "scan_duplicates" else [r]
         if name == "scan_duplicates":
-            print(f"  [result] {len(pairs)} pair(s) from {r['records_scanned']} records")
+            print(f"  [result] {r['summary']} ({r['records_scanned']} records scanned)")
         for x in pairs:
             f = " ".join(f"{k}={v}" for k, v in x["fields"].items())
             print(f"    {x['a'][:12]} ~ {x['b'][:16]}  score={x['score']}  {x['label'].upper()}  [{f}]")

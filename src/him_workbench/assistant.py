@@ -27,6 +27,9 @@ SYSTEM_PROMPT = (
     "Never state a code or a match result from memory.\n"
     "- If a tool returns nothing or an error, say so plainly. Do not guess.\n"
     "- Report only what the tools actually returned. Never claim you did something a tool did not do.\n"
+    "- Copy counts and totals from the tool's summary line. Do not count or add up numbers yourself.\n"
+    "- If a result says words were ignored or some pairs were not shown, tell the user.\n"
+    "- When several codes fit, list them. Do not pick one as 'the' code.\n"
     "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
@@ -43,7 +46,8 @@ TOOLS = [
     {"type": "function", "function": {
         "name": "scan_duplicates",
         "description": "Scan the loaded synthetic patient list for possible duplicate records. Returns the highest-scoring pairs.",
-        "parameters": {"type": "object", "properties": {"max_pairs": {"type": "integer"}}}}},
+        "parameters": {"type": "object", "properties": {"max_pairs": {
+            "type": "integer", "description": "Optional. How many pairs to return (default 10, max 25). Leave out for the default."}}}}},
     {"type": "function", "function": {
         "name": "compare_patients",
         "description": "Compare two records from the loaded synthetic patient list by their ids.",
@@ -80,9 +84,14 @@ class Assistant:
             if name == "search_icd10":
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
-                hits = self.icd.search(str(args.get("query", "")), limit=10)
-                return {"results": [{"code": e.display, "description": e.description} for e in hits],
-                        "source_file": self.icd.source}
+                hits, ignored = self.icd.search_relaxed(str(args.get("query", "")), limit=10)
+                out = {"results": [{"code": e.display, "description": e.description} for e in hits],
+                       "source_file": self.icd.source}
+                if ignored:
+                    out["ignored_words"] = ignored
+                    out["note"] = ("No code matched every word, so these words were ignored: "
+                                   + ", ".join(ignored) + ". Tell the user, and check the results fit the question.")
+                return out
             if name == "lookup_icd10":
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
@@ -91,8 +100,15 @@ class Assistant:
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
                 n = max(1, min(int(args.get("max_pairs", 10) or 10), 25))
-                pairs = find_duplicates(self.patients)[:n]
-                return {"records_scanned": len(self.patients),
+                found = find_duplicates(self.patients)
+                pairs = found[:n]
+                review = sum(1 for r in pairs if r.label == "review")
+                summary = (f"{len(found)} possible duplicate pair(s) found. Showing {len(pairs)}: "
+                           f"{review} review, {len(pairs) - review} match.")
+                if len(found) > len(pairs):
+                    summary += f" {len(found) - len(pairs)} more not shown (ask for more with max_pairs)."
+                return {"records_scanned": len(self.patients), "pairs_found": len(found),
+                        "pairs_shown": len(pairs), "summary": summary,
                         "pairs": [{"a": r.a, "b": r.b, "score": r.score, "label": r.label,
                                    "reasons": r.reasons, "fields": r.detail} for r in pairs]}
             if name == "compare_patients":

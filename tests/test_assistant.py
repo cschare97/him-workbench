@@ -126,3 +126,23 @@ def test_on_result_receives_raw_tool_output(icd):
                     on_result=lambda n, r: got.append((n, r)))
     bot.ask("x")
     assert got[0][0] == "search_icd10" and got[0][1]["results"][0]["code"] == "A00.0"
+
+
+def test_search_tool_reports_ignored_words(icd):
+    bot = Assistant(scripted(call("search_icd10", query="alpha complications"), say("ok")), icd=icd)
+    bot.ask("x")
+    msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
+    assert msg["results"][0]["code"] == "A00.0"
+    assert msg["ignored_words"] == ["complications"] and "ignored" in msg["note"]
+
+
+def test_scan_result_states_its_own_counts(icd):
+    pts = [Patient("1", "Robert", "Alvarado", "1980-03-14", "M", "90210"),
+           Patient("2", "Bob", "Alvarado", "1980-03-14", "M", "90210"),
+           Patient("3", "Jaden", "Lee", "2005-06-01", "M", "30301"),
+           Patient("4", "Jayden", "Lee", "2005-06-01", "M", "30301")]
+    bot = Assistant(scripted(call("scan_duplicates", max_pairs=1), say("ok")), icd=icd, patients=pts)
+    bot.ask("scan")
+    msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
+    assert msg["pairs_found"] == 2 and msg["pairs_shown"] == 1
+    assert "2 possible duplicate pair(s) found" in msg["summary"] and "1 more not shown" in msg["summary"]
