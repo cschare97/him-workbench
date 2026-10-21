@@ -19,6 +19,7 @@ from typing import Callable
 from . import audit
 from .icd10 import ICD10Index, format_code, normalize_code
 from .matching import Patient, compare, find_duplicates
+from .quality import analyze
 
 SYSTEM_PROMPT = (
     "You are a reference assistant for Health Information Management work.\n"
@@ -50,6 +51,10 @@ TOOLS = [
         "description": "Scan the loaded synthetic patient list for possible duplicate records. Returns the highest-scoring pairs.",
         "parameters": {"type": "object", "properties": {"max_pairs": {
             "type": "integer", "description": "Optional. How many pairs to return (default 10, max 25). Leave out for the default."}}}}},
+    {"type": "function", "function": {
+        "name": "data_quality_report",
+        "description": "Count missing values and format problems (bad dates, zips, names) in the loaded synthetic patient list. Counts only.",
+        "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {
         "name": "compare_patients",
         "description": "Compare two records from the loaded synthetic patient list by their ids.",
@@ -119,6 +124,11 @@ class Assistant:
                         "pairs_shown": len(pairs), "summary": summary,
                         "pairs": [{"a": r.a, "b": r.b, "score": r.score, "label": r.label,
                                    "reasons": r.reasons, "fields": r.detail} for r in pairs]}
+            if name == "data_quality_report":
+                if not self.patients:
+                    return {"error": "no synthetic patient list loaded"}
+                rep = analyze(self.patients)
+                return {**rep.to_dict(), "summary": rep.summary()}
             if name == "compare_patients":
                 a, b = self._by_id.get(str(args.get("id_a"))), self._by_id.get(str(args.get("id_b")))
                 if not a or not b:

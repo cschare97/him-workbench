@@ -157,3 +157,13 @@ def test_partial_results_are_labeled_partial(tmp_path):
     msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
     assert len(msg["results"]) == 10 and msg["total_matches"] == 12
     assert "10 of 12" in msg["note"] and "partial" in msg["note"]
+
+
+def test_data_quality_tool_returns_counts_only(icd):
+    pts = [Patient("1", "Robert", "Alvarado", "1980-13-45", "M", "9021"),
+           Patient("2", "Maria", "Okafor", "1991-11-02", "F", "60614")]
+    bot = Assistant(scripted(call("data_quality_report"), say("ok")), icd=icd, patients=pts)
+    bot.ask("how clean is the data")
+    msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
+    assert msg["records"] == 2 and msg["problems"]["dob_malformed"] == 1 and msg["problems"]["zip_malformed"] == 1
+    assert "Alvarado" not in json.dumps(msg) and "2 records" in msg["summary"]

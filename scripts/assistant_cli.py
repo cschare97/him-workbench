@@ -46,6 +46,8 @@ def show_result(name: str, r: dict) -> None:
             print(f"    {x['code']:9} {x['description']}")
     elif name == "lookup_icd10":
         print(f"  [result] {r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}")
+    elif name == "data_quality_report":
+        print(f"  [result] {r['summary']}")
     elif name in ("scan_duplicates", "compare_patients"):
         pairs = r["pairs"] if name == "scan_duplicates" else [r]
         if name == "scan_duplicates":

@@ -11,6 +11,7 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 | Duplicate matcher | Scores pairs of patient records and labels each `match`, `review`, or `non-match`. Says why when it holds a pair back for a person to look at. |
 | ICD-10-CM lookup | Looks up a code, or searches by plain-English text ("type 2 diabetes kidney"). Reads the public CDC/NCHS code file; the file is not bundled. |
 | Assistant | A local Ollama model that answers by calling the two tools above. Every tool result is printed raw, so you can check the model's retelling against the source. |
+| Data-quality report | Counts missing values and format problems (impossible dates, malformed zips, odd names) and exact same-name-and-birth-date groups. Counts only, never patient values. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
 
 ## Principles
@@ -49,6 +50,7 @@ python scripts/icd10_cli.py E11.9
 python scripts/icd10_cli.py "type 2 diabetes kidney"
 python scripts/evaluate_matching.py          # single-error duplicates
 python scripts/evaluate_hard.py              # two-error duplicates and look-alike people
+python scripts/quality_report.py             # missing values and format problems
 ollama pull gemma4:e4b
 python scripts/assistant_cli.py --model gemma4:e4b --demo-dups
 ```
@@ -110,6 +112,7 @@ Run `evaluate_matching.py` and `evaluate_hard.py` yourself for current numbers.
 - **Small lookup tables.** The nickname table and the plain-English synonym list (kidney/renal, heart/cardiac, and a few more) are short and hand-written.
 - **Search relaxation.** If no code matches every word, the search retries without filler words like "complications" and words that match nothing, and says what it dropped. It never drops a real word to force an answer.
 - **Search shows 10 codes at a time.** When more match, the result says "10 of N shown" and the assistant is told to say the list is partial. Ranking is by how directly the words match, with one hand-written boost: "high blood pressure" ranks essential (primary) hypertension first. Other lay phrases have no such boost.
+- **Quality checks are about format, not truth.** A birth date can be a valid date and still be the wrong one. The report finds malformed and missing values; it cannot find wrong ones.
 - **No CPT.** CPT codes are licensed by the AMA and are not included.
 - **Models are imperfect.** Small local models can miscount, skip a tool, or reword your question. That is why raw tool results are printed and why scan results state their own totals. The code-grounding check can occasionally flag text that only looks like a code (for example "B12").
 - **Code sets change.** ICD-10-CM is updated every October 1 (sometimes April 1). Results name the file they came from.
@@ -128,7 +131,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, assistant, audit)
+src/him_workbench/   package code (matching, icd10, quality, assistant, audit)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)
