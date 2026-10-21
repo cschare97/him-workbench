@@ -33,6 +33,7 @@ SYSTEM_PROMPT = (
     "- When several codes fit, list them. Do not pick one as 'the' code.\n"
     "- If the user asks more than one thing, answer every part, using the tool results for each.\n"
     "- If a result says the list is partial, say so. Never present a partial list as complete.\n"
+    "- Keep answers short. Do not list checks whose count is zero; say 'no problems found' instead.\n"
     "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
@@ -128,7 +129,10 @@ class Assistant:
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
                 rep = analyze(self.patients)
-                return {**rep.to_dict(), "summary": rep.summary()}
+                d = rep.to_dict()
+                # fields blank everywhere are reported once, as "not in the source", not as 511 missing values
+                d["missing"] = {k: v for k, v in d["missing"].items() if k not in d["empty_fields"]}
+                return {**d, "summary": rep.summary()}
             if name == "compare_patients":
                 a, b = self._by_id.get(str(args.get("id_a"))), self._by_id.get(str(args.get("id_b")))
                 if not a or not b:

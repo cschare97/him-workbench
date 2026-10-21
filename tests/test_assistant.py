@@ -167,3 +167,4 @@ def test_data_quality_tool_returns_counts_only(icd):
     msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
     assert msg["records"] == 2 and msg["problems"]["dob_malformed"] == 1 and msg["problems"]["zip_malformed"] == 1
     assert "Alvarado" not in json.dumps(msg) and "2 records" in msg["summary"]
+    assert msg["empty_fields"] == ["phone"] and "phone" not in msg["missing"]
