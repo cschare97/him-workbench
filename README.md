@@ -51,6 +51,7 @@ python scripts/icd10_cli.py "type 2 diabetes kidney"
 python scripts/evaluate_matching.py          # single-error duplicates
 python scripts/evaluate_hard.py              # two-error duplicates and look-alike people
 python scripts/quality_report.py             # missing values and format problems
+python scripts/model_check_cli.py --models gemma4:e4b,qwen3.5:9b   # fixed questions, pass/fail per model
 ollama pull gemma4:e4b
 python scripts/assistant_cli.py --model gemma4:e4b --demo-dups
 ```
@@ -119,7 +120,7 @@ Run `evaluate_matching.py` and `evaluate_hard.py` yourself for current numbers.
 
 ## Models tried
 
-Informal checks of tool use on the duplicate scan and one code search, on one Mac. Not a benchmark.
+Informal checks of tool use on the duplicate scan and one code search, on one Mac. Not a benchmark. `scripts/model_check_cli.py` reruns a fixed set of nine questions on any model and checks each answer against what the tools returned (right tool called, counts match, partial lists labeled, no invented codes, honest when a tool errors). The checks are simple string tests; they catch the failures seen so far, not writing quality.
 
 | Model | What happened |
 |---|---|
