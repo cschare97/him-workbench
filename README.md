@@ -72,6 +72,19 @@ The agreement probabilities in `matching.py` are illustrative defaults, not tune
 
 Measured on 500 Synthea patients (Massachusetts, default seed) with duplicates injected by the scripts above. These are counts from one synthetic dataset, not a benchmark, and real records have messier errors than injected ones.
 
+Single-error duplicates (34 injected into 500 originals; one change per copy):
+
+| Change | Auto-matched | Review | Missed |
+|---|---|---|---|
+| Birth month and day swapped | 3 | 0 | 0 |
+| Birth year off by one | 9 | 0 | 0 |
+| First-name typo | 1 | 6 | 0 |
+| Last-name typo | 5 | 0 | 0 |
+| Sex and zip missing | 10 | 0 | 0 |
+| **Total** | **28 (82%)** | **6 (18%)** | **0** |
+
+No false matches or false review flags among the 500 different people. The nickname case did not appear in this run's sample, so it is covered by unit tests but was not measured here.
+
 Two-error duplicates (95 cases, e.g. a typo plus a swapped birth month and day):
 
 | Outcome | Count |
