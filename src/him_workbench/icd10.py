@@ -45,6 +45,45 @@ def _words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+# Small hand-written lay-term table so searches like "kidney" also find "renal".
+# Illustrative, not a clinical thesaurus. Each group is interchangeable for search.
+PHRASES = {
+    "high blood pressure": ["hypertension"],
+    "low blood pressure": ["hypotension"],
+    "heart attack": ["myocardial", "infarction"],
+    "blood clot": ["thrombosis"],
+}
+GROUPS = [
+    ["kidney", "renal", "nephr"],
+    ["heart", "cardiac", "cardio", "myocard"],
+    ["liver", "hepat"],
+    ["lung", "pulmon"],
+    ["stomach", "gastr"],
+    ["cancer", "carcinoma", "malignant", "neoplasm"],
+    ["broken", "fracture"],
+    ["swelling", "edema"],
+    ["fever", "pyrexia", "febrile"],
+    ["bleeding", "hemorrhage"],
+    ["stroke", "cerebrovascular"],
+    ["baby", "newborn", "neonatal", "infant"],
+]
+_SYN = {w: g for g in GROUPS for w in g}
+
+
+def _expand_query(query: str) -> list[list[str]]:
+    """Return, per required term, the list of alternative word-prefixes that satisfy it."""
+    q = " ".join(_words(query))
+    required: list[list[str]] = []
+    for phrase, alts in PHRASES.items():
+        if phrase in q:
+            q = q.replace(phrase, " ")
+            required.extend([[a] for a in alts])
+    for tok in q.split():
+        group = _SYN.get(tok, [])
+        required.append([tok] + [a for a in group if a != tok])  # typed word first
+    return required
+
+
 class ICD10Index:
     def __init__(self, entries: list[Entry], source: str = "", year: str = ""):
         self.entries = entries
@@ -111,16 +150,18 @@ class ICD10Index:
         audit.log_call("icd10_describe", {"op": "describe"}, result["status"])
         return result
 
-    def search(self, query: str, limit: int = 10) -> list[Entry]:
-        tokens = _words(query)
-        if not tokens:
+    def search(self, query: str, limit: int = 10, synonyms: bool = True) -> list[Entry]:
+        terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
+        if not terms:
             return []
+        originals = [alts[0] for alts in terms]
         scored = []
         for entry, words in zip(self.entries, self._words):
-            if all(any(w.startswith(t) for w in words) for t in tokens):
-                exact = sum(1 for t in tokens if t in words)
-                scored.append((-exact, len(entry.description), entry.code, entry))
-        scored.sort(key=lambda x: x[:3])
-        results = [s[3] for s in scored[:limit]]
+            if all(any(w.startswith(a) for a in alts for w in words) for alts in terms):
+                direct = sum(1 for t in originals if any(w.startswith(t) for w in words))
+                exact = sum(1 for t in originals if t in words)
+                scored.append((-direct, -exact, len(entry.description), entry.code, entry))
+        scored.sort(key=lambda x: x[:4])
+        results = [s[4] for s in scored[:limit]]
         audit.log_call("icd10_search", {"query_chars": len(query)}, f"{len(results)} results")
         return results

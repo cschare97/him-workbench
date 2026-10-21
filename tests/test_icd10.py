@@ -69,3 +69,42 @@ def test_audit_never_logs_query_text(idx, tmp_path):
     idx.search("charlie left")
     log = (tmp_path / "audit.jsonl").read_text()
     assert "charlie" not in log and "query_chars" in log
+
+
+SYN_FIXTURE = """\
+A100    Test chronic renal condition
+A101    Test kidney condition direct
+A102    Test hypertension condition
+A103    Test myocardial infarction condition
+A104    Test unrelated condition
+"""
+
+
+@pytest.fixture
+def syn_idx(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(SYN_FIXTURE)
+    return ICD10Index.from_file(p)
+
+
+def test_synonym_kidney_finds_renal_and_direct_ranks_first(syn_idx):
+    codes = [e.code for e in syn_idx.search("kidney")]
+    assert codes == ["A101", "A100"]
+
+
+def test_synonym_off_is_literal(syn_idx):
+    assert [e.code for e in syn_idx.search("kidney", synonyms=False)] == ["A101"]
+
+
+def test_phrase_synonyms(syn_idx):
+    assert [e.code for e in syn_idx.search("high blood pressure")] == ["A102"]
+    assert [e.code for e in syn_idx.search("heart attack")] == ["A103"]
+
+
+def test_no_false_synonym_hits(syn_idx):
+    assert syn_idx.search("liver") == []
+
+
+def test_typed_word_is_the_direct_term(syn_idx):
+    # typing "renal" should rank the renal entry above the kidney-only entry
+    assert [e.code for e in syn_idx.search("renal")] == ["A100", "A101"]

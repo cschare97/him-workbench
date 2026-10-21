@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import combinations
 
 from . import audit
@@ -52,6 +52,7 @@ class PairResult:
     score: float
     label: str  # "match" | "review" | "non-match"
     detail: dict[str, float]
+    reasons: list[str] = field(default_factory=list)  # why a high score was held back for review
 
 
 def normalize_name(s: str) -> str:
@@ -184,12 +185,18 @@ def compare(a: Patient, b: Patient) -> PairResult:
     label = "match" if score >= MATCH_THRESHOLD else "review" if score >= REVIEW_THRESHOLD else "non-match"
     # Safety rules: an automatic match needs the first names to be equal after nickname normalization
     # (similar-but-different names like twins, or typos, go to a human) and no clear DOB conflict (parent/child, same name).
+    reasons: list[str] = []
     if label == "match":
         first_full = canonical_first(a.first) == canonical_first(b.first)
         dob_conflict = detail["dob"] <= _weights("dob")[1] + 1e-9
-        if not first_full or dob_conflict:
+        if not first_full:
+            reasons.append("first names not identical (typo or look-alike name)")
+        if dob_conflict:
+            reasons.append("dates of birth clearly conflict")
+        if reasons:
             label = "review"
-    return PairResult(a.id, b.id, round(score, 2), label, {k: round(v, 2) for k, v in detail.items()})
+    return PairResult(a.id, b.id, round(score, 2), label,
+                      {k: round(v, 2) for k, v in detail.items()}, reasons)
 
 
 def _block_keys(p: Patient) -> set[str]:

@@ -90,3 +90,14 @@ def test_twins_with_similar_names_not_auto_matched():
     a = Patient("1", "Jaden", "Lee", "2005-06-01", "M", "30301", "")
     b = Patient("2", "Jayden", "Lee", "2005-06-01", "M", "30301", "")
     assert compare(a, b).label != "match"
+
+
+def test_review_label_always_has_a_reason():
+    twin_a = Patient("1", "Jaden", "Lee", "2005-06-01", "M", "30301", "")
+    twin_b = Patient("2", "Jayden", "Lee", "2005-06-01", "M", "30301", "")
+    r = compare(twin_a, twin_b)
+    assert r.label == "review" and any("first names" in w for w in r.reasons)
+    parent = Patient("1", "Robert", "Alvarado", "1955-03-14", "M", "90210", "")
+    child = Patient("2", "Robert", "Alvarado", "1985-03-14", "M", "90210", "")
+    assert any("birth" in w for w in compare(parent, child).reasons)
+    assert compare(BASE, Patient("2", "Bob", "Alvarado", "1980-03-14", "M", "90210", "")).reasons == []
