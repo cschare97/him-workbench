@@ -1,0 +1,63 @@
+import pytest
+
+from him_workbench import audit, matching
+from him_workbench.matching import Patient, compare, find_duplicates, jaro_winkler, soundex
+
+
+@pytest.fixture(autouse=True)
+def _tmp_log(tmp_path, monkeypatch):
+    monkeypatch.setattr(audit, "LOG_PATH", tmp_path / "audit.jsonl")
+
+
+# All names below are invented test data.
+BASE = Patient("1", "Robert", "Alvarado", "1980-03-14", "M", "90210", "555-010-1234")
+
+
+def test_known_string_metrics():
+    assert soundex("Robert") == "R163"
+    assert soundex("Rupert") == "R163"
+    assert jaro_winkler("martha", "marhta") == pytest.approx(0.9611, abs=1e-3)
+
+
+def test_nickname_same_person_is_match():
+    other = Patient("2", "Bob", "Alvarado", "1980-03-14", "M", "90210", "5550101234")
+    assert compare(BASE, other).label == "match"
+
+
+def test_typo_in_last_name_still_match():
+    other = Patient("2", "Robert", "Alvarodo", "1980-03-14", "M", "90210", "")
+    assert compare(BASE, other).label == "match"
+
+
+def test_dob_month_day_swap_goes_to_review_or_match():
+    other = Patient("2", "Robert", "Alvarado", "1980-14-03", "M", "90210", "")
+    assert compare(BASE, other).label in ("review", "match")
+
+
+def test_different_people_non_match():
+    other = Patient("2", "Maria", "Okafor", "1991-11-02", "F", "60614", "5550999999")
+    assert compare(BASE, other).label == "non-match"
+
+
+def test_twins_not_auto_matched():
+    a = Patient("1", "Jordan", "Lee", "2005-06-01", "M", "30301", "")
+    b = Patient("2", "Jaden", "Lee", "2005-06-01", "M", "30301", "")
+    assert compare(a, b).label != "match"
+
+
+def test_missing_fields_add_no_evidence():
+    a = Patient("1", "Robert", "Alvarado", "1980-03-14")
+    b = Patient("2", "Robert", "Alvarado", "1980-03-14")
+    r = compare(a, b)
+    assert r.detail["sex"] == 0 and r.detail["zip"] == 0 and r.detail["phone"] == 0
+
+
+def test_find_duplicates_blocking_and_audit(tmp_path):
+    pts = [
+        BASE,
+        Patient("2", "Bob", "Alvarado", "1980-03-14", "M", "90210", ""),
+        Patient("3", "Maria", "Okafor", "1991-11-02", "F", "60614", ""),
+    ]
+    res = find_duplicates(pts)
+    assert [(r.a, r.b) for r in res] == [("1", "2")]
+    assert (tmp_path / "audit.jsonl").exists()
