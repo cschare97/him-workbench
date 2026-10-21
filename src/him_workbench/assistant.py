@@ -30,6 +30,8 @@ SYSTEM_PROMPT = (
     "- Copy counts and totals from the tool's summary line. Do not count or add up numbers yourself.\n"
     "- If a result says words were ignored or some pairs were not shown, tell the user.\n"
     "- When several codes fit, list them. Do not pick one as 'the' code.\n"
+    "- If the user asks more than one thing, answer every part, using the tool results for each.\n"
+    "- If a result says the list is partial, say so. Never present a partial list as complete.\n"
     "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
@@ -84,13 +86,19 @@ class Assistant:
             if name == "search_icd10":
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
-                hits, ignored = self.icd.search_relaxed(str(args.get("query", "")), limit=10)
+                hits, ignored, total = self.icd.search_detail(str(args.get("query", "")), limit=10)
                 out = {"results": [{"code": e.display, "description": e.description} for e in hits],
-                       "source_file": self.icd.source}
+                       "total_matches": total, "source_file": self.icd.source}
+                notes = []
                 if ignored:
                     out["ignored_words"] = ignored
-                    out["note"] = ("No code matched every word, so these words were ignored: "
-                                   + ", ".join(ignored) + ". Tell the user, and check the results fit the question.")
+                    notes.append("No code matched every word, so these words were ignored: "
+                                 + ", ".join(ignored) + ".")
+                if total > len(hits):
+                    notes.append(f"Only {len(hits)} of {total} matching codes are shown. Tell the user the list is "
+                                 "partial and suggest narrowing the search (add a body part, type, or cause).")
+                if notes:
+                    out["note"] = " ".join(notes) + " Check the results fit the question."
                 return out
             if name == "lookup_icd10":
                 if not self.icd:

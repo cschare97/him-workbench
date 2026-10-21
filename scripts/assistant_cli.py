@@ -37,7 +37,9 @@ def show_result(name: str, r: dict) -> None:
     if "error" in r:
         print(f"  [result] ERROR: {r['error']}")
     elif name == "search_icd10":
-        print(f"  [result] {len(r['results'])} code(s) from {r.get('source_file')}")
+        shown, total = len(r["results"]), r.get("total_matches", len(r["results"]))
+        count = f"{shown} of {total}" if total > shown else f"{shown}"
+        print(f"  [result] {count} code(s) from {r.get('source_file')}")
         if r.get("ignored_words"):
             print(f"    (no code matched every word; ignored: {', '.join(r['ignored_words'])})")
         for x in r["results"]:

@@ -69,6 +69,17 @@ GROUPS = [
 ]
 _SYN = {w: g for g in GROUPS for w in g}
 
+# For a plain-English phrase, descriptions containing these words rank first. Hand-written:
+# the ICD-10-CM index sends "high blood pressure" to the essential (primary) hypertension code.
+PREFER = {
+    "high blood pressure": ["essential"],
+}
+
+
+def _prefer_words(query: str) -> list[str]:
+    q = " ".join(_words(query))
+    return [w for phrase, ws in PREFER.items() if phrase in q for w in ws]
+
 # Words people add that codes rarely contain. Only dropped when nothing matches every word.
 FILLER = {"complication", "complications", "problem", "problems", "issue", "issues"}
 
@@ -153,36 +164,41 @@ class ICD10Index:
         audit.log_call("icd10_describe", {"op": "describe"}, result["status"])
         return result
 
-    def _ranked(self, terms: list[list[str]]) -> list[Entry]:
+    def _ranked(self, terms: list[list[str]], prefer: list[str] | None = None) -> list[Entry]:
         """All entries that satisfy every term, best first."""
+        prefer = prefer or []
         originals = [alts[0] for alts in terms]
         scored = []
         for entry, words in zip(self.entries, self._words):
             if all(any(w.startswith(a) for a in alts for w in words) for alts in terms):
                 direct = sum(1 for t in originals if any(w.startswith(t) for w in words))
                 exact = sum(1 for t in originals if t in words)
-                scored.append((-direct, -exact, len(entry.description), entry.code, entry))
-        scored.sort(key=lambda x: x[:4])
-        return [s[4] for s in scored]
+                pref = sum(1 for t in prefer if any(w.startswith(t) for w in words))
+                scored.append((-direct, -exact, -pref, len(entry.description), entry.code, entry))
+        scored.sort(key=lambda x: x[:5])
+        return [s[5] for s in scored]
 
     def search(self, query: str, limit: int = 10, synonyms: bool = True) -> list[Entry]:
         """Strict search: every word must match."""
         terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
         if not terms:
             return []
-        results = self._ranked(terms)[:limit]
+        prefer = _prefer_words(query) if synonyms else []
+        results = self._ranked(terms, prefer)[:limit]
         audit.log_call("icd10_search", {"query_chars": len(query)}, f"{len(results)} results")
         return results
 
-    def search_relaxed(self, query: str, limit: int = 10, synonyms: bool = True) -> tuple[list[Entry], list[str]]:
+    def search_detail(self, query: str, limit: int = 10, synonyms: bool = True) -> tuple[list[Entry], list[str], int]:
         """Like search, but if nothing matches every word, retry without the words that get in
-        the way. Returns (results, ignored_words) so the caller can say what was dropped.
+        the way. Returns (results, ignored_words, total_matches) so the caller can say what was
+        dropped and whether more matches exist than were returned.
         Only two things are ever dropped: filler words like 'complications', and words that match
         no code at all (typos, junk). It never drops a real word to force an answer."""
         terms = _expand_query(query) if synonyms else [[t] for t in _words(query)]
         if not terms:
-            return [], []
-        results = self._ranked(terms)
+            return [], [], 0
+        prefer = _prefer_words(query) if synonyms else []
+        results = self._ranked(terms, prefer)
         ignored: list[str] = []
         if not results and len(terms) > 1:
             drop = [t for t in terms if t[0] in FILLER]
@@ -191,10 +207,15 @@ class ICD10Index:
             base = [t for t in base if t not in dead]
             ignored = [t[0] for t in terms if t in drop or t in dead]
             if base and ignored:
-                results = self._ranked(base)
+                results = self._ranked(base, prefer)
             if not results:
                 ignored = []
+        total = len(results)
         results = results[:limit]
         audit.log_call("icd10_search", {"query_chars": len(query)},
-                       f"{len(results)} results, {len(ignored)} words ignored")
+                       f"{len(results)} of {total} results, {len(ignored)} words ignored")
+        return results, ignored, total
+
+    def search_relaxed(self, query: str, limit: int = 10, synonyms: bool = True) -> tuple[list[Entry], list[str]]:
+        results, ignored, _ = self.search_detail(query, limit, synonyms)
         return results, ignored

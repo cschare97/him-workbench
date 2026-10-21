@@ -109,6 +109,7 @@ Run `evaluate_matching.py` and `evaluate_hard.py` yourself for current numbers.
 - **Typos always go to a person.** A misspelled first name is never auto-matched, by design. That means more review work.
 - **Small lookup tables.** The nickname table and the plain-English synonym list (kidney/renal, heart/cardiac, and a few more) are short and hand-written.
 - **Search relaxation.** If no code matches every word, the search retries without filler words like "complications" and words that match nothing, and says what it dropped. It never drops a real word to force an answer.
+- **Search shows 10 codes at a time.** When more match, the result says "10 of N shown" and the assistant is told to say the list is partial. Ranking is by how directly the words match, with one hand-written boost: "high blood pressure" ranks essential (primary) hypertension first. Other lay phrases have no such boost.
 - **No CPT.** CPT codes are licensed by the AMA and are not included.
 - **Models are imperfect.** Small local models can miscount, skip a tool, or reword your question. That is why raw tool results are printed and why scan results state their own totals. The code-grounding check can occasionally flag text that only looks like a code (for example "B12").
 - **Code sets change.** ICD-10-CM is updated every October 1 (sometimes April 1). Results name the file they came from.

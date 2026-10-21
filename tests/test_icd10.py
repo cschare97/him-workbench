@@ -155,3 +155,27 @@ def test_relaxed_never_drops_a_real_word(diab_idx):
     # real words that never appear together: say nothing found, do not answer for part of the question
     assert diab_idx.search_relaxed("hyperglycemia nephropathy") == ([], [])
     assert diab_idx.search_relaxed("diabetes kidney hyperglycemia") == ([], [])
+
+
+HBP_FIXTURE = """\
+K766    Test portal hypertension
+P292    Test neonatal hypertension
+I150    Test renovascular hypertension
+I10     Test essential (primary) hypertension
+"""
+
+
+def test_high_blood_pressure_puts_the_essential_code_first(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(HBP_FIXTURE)
+    idx = ICD10Index.from_file(p)
+    assert idx.search("high blood pressure")[0].code == "I10"
+    assert idx.search_relaxed("high blood pressure")[0][0].code == "I10"
+
+
+def test_search_detail_reports_total_beyond_the_limit(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(HBP_FIXTURE)
+    idx = ICD10Index.from_file(p)
+    results, ignored, total = idx.search_detail("hypertension", limit=2)
+    assert len(results) == 2 and total == 4 and ignored == []

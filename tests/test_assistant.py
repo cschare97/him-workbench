@@ -146,3 +146,14 @@ def test_scan_result_states_its_own_counts(icd):
     msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
     assert msg["pairs_found"] == 2 and msg["pairs_shown"] == 1
     assert "2 possible duplicate pair(s) found" in msg["summary"] and "1 more not shown" in msg["summary"]
+
+
+def test_partial_results_are_labeled_partial(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("".join(f"A{n:02d}0    Test condition item {n}\n" for n in range(12)))
+    big = ICD10Index.from_file(p)
+    bot = Assistant(scripted(call("search_icd10", query="test condition"), say("ok")), icd=big)
+    bot.ask("x")
+    msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
+    assert len(msg["results"]) == 10 and msg["total_matches"] == 12
+    assert "10 of 12" in msg["note"] and "partial" in msg["note"]
