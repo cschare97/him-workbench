@@ -1,0 +1,71 @@
+import pytest
+
+from him_workbench import audit
+from him_workbench.icd10 import ICD10Index, format_code, looks_like_code, normalize_code
+
+
+@pytest.fixture(autouse=True)
+def _tmp_log(tmp_path, monkeypatch):
+    monkeypatch.setattr(audit, "LOG_PATH", tmp_path / "audit.jsonl")
+
+
+# Invented stand-in file: real-looking code shapes, fake descriptions.
+FIXTURE = """\
+A000    Test condition alpha, first type
+A001    Test condition alpha, second type
+B12     Test condition bravo
+C3401   Test condition charlie of left side
+C3402   Test condition charlie of right side
+C341    Test condition charlie, unspecified
+"""
+
+
+@pytest.fixture
+def idx(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(FIXTURE)
+    return ICD10Index.from_file(p)
+
+
+def test_normalize_and_format():
+    assert normalize_code("c34.01") == "C3401"
+    assert format_code("C3401") == "C34.01"
+    assert format_code("A00") == "A00"
+    assert looks_like_code("a00.0") and not looks_like_code("diabetes")
+
+
+def test_loads_and_reads_year(idx):
+    assert len(idx) == 6 and idx.year == "2099"
+
+
+def test_lookup_with_and_without_dot(idx):
+    assert idx.lookup("C34.01").description.startswith("Test condition charlie of left")
+    assert idx.lookup("c3401") is not None
+    assert idx.lookup("Z999") is None
+
+
+def test_describe_statuses(idx):
+    assert idx.describe("A00.0")["status"] == "valid"
+    cat = idx.describe("C34")
+    assert cat["status"] == "category" and cat["more_specific_count"] == 3
+    assert idx.describe("Z99")["status"] == "unknown"
+
+
+def test_search_all_tokens_and_ranking(idx):
+    res = idx.search("charlie left")
+    assert [e.code for e in res] == ["C3401"]
+    assert {e.code for e in idx.search("alpha")} == {"A000", "A001"}
+    assert idx.search("") == []
+
+
+def test_wrong_file_is_rejected(tmp_path):
+    p = tmp_path / "order.txt"
+    p.write_text("00001 A00 0 Short text   Long text here\n" * 5)
+    with pytest.raises(ValueError):
+        ICD10Index.from_file(p)
+
+
+def test_audit_never_logs_query_text(idx, tmp_path):
+    idx.search("charlie left")
+    log = (tmp_path / "audit.jsonl").read_text()
+    assert "charlie" not in log and "query_chars" in log
