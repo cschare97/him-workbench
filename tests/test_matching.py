@@ -61,3 +61,32 @@ def test_find_duplicates_blocking_and_audit(tmp_path):
     res = find_duplicates(pts)
     assert [(r.a, r.b) for r in res] == [("1", "2")]
     assert (tmp_path / "audit.jsonl").exists()
+
+
+def test_year_typo_is_found_by_blocking():
+    pts = [
+        BASE,
+        Patient("2", "Robert", "Alvarado", "1981-03-14", "M", "90210", ""),
+    ]
+    res = find_duplicates(pts)
+    assert [(r.a, r.b) for r in res] == [("1", "2")]
+
+
+def test_parent_child_same_name_never_auto_match():
+    parent = Patient("1", "Robert", "Alvarado", "1955-03-14", "M", "90210", "")
+    child = Patient("2", "Robert", "Alvarado", "1985-03-14", "M", "90210", "")
+    assert compare(parent, child).label != "match"
+
+
+def test_two_errors_still_paired():
+    pts = [
+        BASE,
+        Patient("2", "Robert", "Alvarodo", "1981-03-14", "M", "90210", ""),
+    ]
+    assert len(find_duplicates(pts)) == 1
+
+
+def test_twins_with_similar_names_not_auto_matched():
+    a = Patient("1", "Jaden", "Lee", "2005-06-01", "M", "30301", "")
+    b = Patient("2", "Jayden", "Lee", "2005-06-01", "M", "30301", "")
+    assert compare(a, b).label != "match"

@@ -182,17 +182,27 @@ def compare(a: Patient, b: Patient) -> PairResult:
     }
     score = sum(detail.values())
     label = "match" if score >= MATCH_THRESHOLD else "review" if score >= REVIEW_THRESHOLD else "non-match"
-    # Safety rule: a clear first-name conflict (e.g. twins) is never an automatic match.
-    if label == "match" and detail["first"] < 0:
-        label = "review"
+    # Safety rules: an automatic match needs the first names to be equal after nickname normalization
+    # (similar-but-different names like twins, or typos, go to a human) and no clear DOB conflict (parent/child, same name).
+    if label == "match":
+        first_full = canonical_first(a.first) == canonical_first(b.first)
+        dob_conflict = detail["dob"] <= _weights("dob")[1] + 1e-9
+        if not first_full or dob_conflict:
+            label = "review"
     return PairResult(a.id, b.id, round(score, 2), label, {k: round(v, 2) for k, v in detail.items()})
 
 
 def _block_keys(p: Patient) -> set[str]:
     keys = set()
     last = soundex(p.last)
+    first = canonical_first(p.first)
+    if first and len(p.dob) == 10:
+        keys.add(f"fn:{first}|md:{p.dob[5:]}")
+        keys.add(f"fn:{first}|y:{p.dob[:4]}")
     if last and p.dob:
         keys.add(f"sx:{last}|y:{p.dob[:4]}")
+    if last and len(p.dob) == 10:
+        keys.add(f"sx:{last}|md:{p.dob[5:]}")  # catches year typos
     if p.dob:
         keys.add(f"dob:{p.dob}")
     return keys
