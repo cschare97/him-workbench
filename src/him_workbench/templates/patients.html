@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Patients</h1><span class="meta">{{ total }} synthetic records</span></div>
+{% if not total %}
+<p class="empty">No patients loaded. Run <span class="mono">./scripts/generate_synthea.sh</span>, then restart this page.</p>
+{% else %}
+<form class="inline" method="get" action="/patients" role="search">
+  <label class="sr" for="pq">Filter patients</label>
+  <input id="pq" type="search" name="q" value="{{ q }}" placeholder="Filter by name, id, birth date, or zip">
+  <button type="submit">Filter</button>
+</form>
+{% if q %}<p class="meta">{{ matched }} match{{ '' if matched == 1 else 'es' }}{% if matched > rows|length %}, showing the first {{ rows|length }}{% endif %}.</p>{% endif %}
+{% if rows %}
+<table>
+  <thead><tr><th>Name</th><th>Birth date</th><th>Sex</th><th>Zip</th><th>Id</th></tr></thead>
+  <tbody>
+  {% for p in rows %}
+    <tr><td>{{ p.first }} {{ p.last }}</td><td class="mono">{{ p.dob }}</td><td>{{ p.sex or '(blank)' }}</td><td class="mono">{{ p.zip or '(blank)' }}</td><td class="ids">{{ p.id[:13] }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No patient matches “{{ q }}”. Try part of a name, or clear the filter.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

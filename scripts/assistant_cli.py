@@ -17,6 +17,7 @@ from evaluate_matching import CORRUPTIONS, load
 from him_workbench.assistant import Assistant, list_models, ollama_chat
 from him_workbench.icd10 import ICD10Index
 from him_workbench.matching import Patient
+from him_workbench.render import result_lines
 
 BANNER = ("Synthetic data only. Do not enter real patient information.\n"
           "Reference tool, not coding, billing, or clinical advice. Type 'quit' to exit.\n")
@@ -34,29 +35,10 @@ def with_demo_dups(patients, n=15, seed=7):
 
 def show_result(name: str, r: dict) -> None:
     """Print the tool's raw result. This is the source of truth, not the model's retelling."""
-    if "error" in r:
-        print(f"  [result] ERROR: {r['error']}")
-    elif name == "search_icd10":
-        shown, total = len(r["results"]), r.get("total_matches", len(r["results"]))
-        count = f"{shown} of {total}" if total > shown else f"{shown}"
-        print(f"  [result] {count} code(s) from {r.get('source_file')}")
-        if r.get("ignored_words"):
-            print(f"    (no code matched every word; ignored: {', '.join(r['ignored_words'])})")
-        for x in r["results"]:
-            print(f"    {x['code']:9} {x['description']}")
-    elif name == "lookup_icd10":
-        print(f"  [result] {r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}")
-    elif name == "data_quality_report":
-        print(f"  [result] {r['summary']}")
-    elif name in ("scan_duplicates", "compare_patients"):
-        pairs = r["pairs"] if name == "scan_duplicates" else [r]
-        if name == "scan_duplicates":
-            print(f"  [result] {r['summary']} ({r['records_scanned']} records scanned)")
-        for x in pairs:
-            f = " ".join(f"{k}={v}" for k, v in x["fields"].items())
-            print(f"    {x['a'][:12]} ~ {x['b'][:16]}  score={x['score']}  {x['label'].upper()}  [{f}]")
-            for why in x.get("reasons", []):
-                print(f"        held for review: {why}")
+    head, details = result_lines(name, r)
+    print(f"  [result] {head}")
+    for line in details:
+        print(f"    {line}")
 
 
 def find_icd() -> Path | None:

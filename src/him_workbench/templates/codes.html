@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Codes</h1><span class="meta">{{ source or 'no ICD-10-CM file loaded' }}</span></div>
+{% if not loaded %}
+<p class="empty">No ICD-10-CM file found. Run <span class="mono">./scripts/fetch_icd10.sh</span>, then restart this page.</p>
+{% else %}
+<form class="inline" method="get" action="/codes" role="search">
+  <label class="sr" for="cq">Search codes</label>
+  <input id="cq" type="search" name="q" value="{{ q }}" placeholder="A diagnosis or a code, like type 2 diabetes kidney or E11.9">
+  <button type="submit">Search</button>
+</form>
+{% if lookup %}
+<div class="panel">
+  {% if lookup.status == 'valid' %}
+    <b class="mono">{{ lookup.code }}</b> {{ lookup.description }}
+  {% elif lookup.status == 'category' %}
+    <b class="mono">{{ lookup.code }}</b> is a category, not a complete code. {{ lookup.more_specific_count }} more specific codes sit under it.
+  {% else %}
+    <b class="mono">{{ lookup.code }}</b> is not in this code file.
+  {% endif %}
+</div>
+{% endif %}
+{% if ignored %}<p class="note info">No code matched every word, so this search ignored: {{ ignored|join(', ') }}.</p>{% endif %}
+{% if q and not results and not lookup %}
+<p class="empty">No codes match “{{ q }}”. Try fewer or different words.</p>
+{% elif results %}
+{% if total > results|length %}<p class="note">Showing {{ results|length }} of {{ total }} matching codes. Add a body part, type, or cause to narrow the list.</p>{% endif %}
+<table>
+  <thead><tr><th>Code</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for e in results %}<tr><td class="mono">{{ e.display }}</td><td>{{ e.description }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% elif not q %}
+<p class="empty">Search by plain-English text or paste a code. This is a reference lookup, not coding or billing advice.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

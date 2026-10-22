@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>About</h1></div>
+<p class="lede">HIM Workbench finds possible duplicate patient records, looks up ICD-10-CM codes, and lets you ask about both in plain English. It is a learning and portfolio project.</p>
+<h3>What to keep in mind</h3>
+<p>Synthetic data only. This is not for clinical use, billing, or coding decisions.</p>
+<p>The model's answer can be wrong. The panel that opens from the prompt bar always shows what the tools actually returned beside the answer. When the two disagree, trust the tool results.</p>
+<p>A duplicate score is evidence, not a verdict. Pairs marked Review are held for a person to decide, and the reason is shown.</p>
+{% endblock %}

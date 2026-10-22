@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Duplicates</h1><span class="meta">{{ found }} possible pair{{ '' if found == 1 else 's' }}</span></div>
+{% if not found %}
+<p class="empty">No possible duplicates found{% if not shown %} in the loaded records{% endif %}.</p>
+{% else %}
+<p class="lede">Pairs of records that may be the same person. {{ n_review }} need a person to decide; {{ n_match }} agree closely enough to treat as the same person.</p>
+{% for p in pairs %}
+<article class="entry">
+  <div>
+    <h2>{{ p.name_a }} and {{ p.name_b }}</h2>
+    <p>
+      {% if p.r.reasons %}Held for review: {{ p.r.reasons|join('; ') }}.
+      {% else %}Names, birth date, and the other fields agree.{% endif %}
+    </p>
+    <p class="ids">{{ p.r.a[:13] }} · {{ p.r.b[:17] }}</p>
+    {% if p.rows %}
+    <details>
+      <summary>Compare fields</summary>
+      <table>
+        <thead><tr><th>Field</th><th>Record 1</th><th>Record 2</th><th class="num">Points</th></tr></thead>
+        <tbody>
+        {% for r in p.rows %}
+          <tr><td>{{ r.label }}</td><td>{{ r.a }}</td><td class="{{ '' if r.same else 'flag' }}">{{ r.b }}</td><td class="num">{{ '%.2f'|format(r.points) }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="meta">Points add up to the score. Higher means stronger evidence they are the same person.</p>
+    </details>
+    {% endif %}
+  </div>
+  <div class="cover {{ p.r.label }}"><b>{{ '%.1f'|format(p.r.score) }}</b><span>{{ 'Review' if p.r.label == 'review' else 'Match' }}</span></div>
+</article>
+{% endfor %}
+{% if found > shown %}<p><a href="/duplicates?n={{ n + 20 }}">Show more pairs</a> ({{ found - shown }} not shown)</p>{% endif %}
+{% endif %}
+{% endblock %}

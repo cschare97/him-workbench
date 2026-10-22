@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Data sources</h1></div>
+<table>
+  <thead><tr><th>Source</th><th>Loaded</th></tr></thead>
+  <tbody>
+    <tr><td>Synthetic patients (Synthea)</td><td>{{ n_patients }} records{% if not n_patients %}. Run <span class="mono">./scripts/generate_synthea.sh</span>.{% endif %}</td></tr>
+    <tr><td>ICD-10-CM code descriptions (CDC/NCHS)</td><td>{% if icd %}<span class="mono">{{ icd.source }}</span>, {{ icd|length }} codes{% else %}Not loaded. Run <span class="mono">./scripts/fetch_icd10.sh</span>.{% endif %}</td></tr>
+  </tbody>
+</table>
+{% if empty %}<p class="note info">Empty in every patient record: {{ empty|join(', ') }}. Synthea's patient file does not include these fields.</p>{% endif %}
+<h3>Your own textures</h3>
+<p>The tab and header textures are drawn in CSS. To use your own images, put JPEG files named <span class="mono">patients.jpg</span>, <span class="mono">duplicates.jpg</span>, <span class="mono">quality.jpg</span>, <span class="mono">codes.jpg</span>, or <span class="mono">header.jpg</span> in <span class="mono">data/ui-textures/</span> and reload. That folder is gitignored, so your images stay on this computer.</p>
+{% endblock %}

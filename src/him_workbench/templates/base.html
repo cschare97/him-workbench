@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }} · HIM Workbench</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% if local_textures %}<style>:root { {% for n, u in local_textures.items() %}--tex-{{ n }}: url("{{ u }}"); {% endfor %} }</style>{% endif %}
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/patients">HIM Workbench</a>
+    <nav class="topnav" aria-label="Settings and information">
+      <a href="/patients" {% if active %}aria-current="page"{% endif %}>Home</a>
+      <a href="/audit" {% if nav == 'audit' %}aria-current="page"{% endif %}>Audit log</a>
+      <a href="/models" {% if nav == 'models' %}aria-current="page"{% endif %}>Models</a>
+      <a href="/sources" {% if nav == 'sources' %}aria-current="page"{% endif %}>Data sources</a>
+      <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
+    </nav>
+    <form class="ask" id="ask-form" role="search" autocomplete="off">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3.5h12v7H8.5L5 13.5v-3H2z" stroke-linejoin="round"/></svg>
+      <label class="sr" for="ask-input">Ask about patients or codes</label>
+      <input id="ask-input" type="text" maxlength="500" placeholder="Ask about patients or codes">
+      <kbd aria-hidden="true">/</kbd>
+    </form>
+  </header>
+  <div class="strip" role="note">
+    <span><b>Synthetic data only.</b> Do not enter real patient information.</span>
+    <span class="model">Model: <span id="model-name">{{ model or 'none selected' }}</span></span>
+  </div>
+
+  <nav class="tabs" aria-label="Patient sections">
+    {% for key, label, href in tabs %}
+    <a class="tab" data-tex="{{ key }}" href="{{ href }}" {% if active == key %}aria-current="page"{% endif %}>
+      <span><b>{{ label }}</b><small>{{ tab_counts[key] }}</small></span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <main id="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <section class="answer" id="answer-panel" aria-label="Assistant answer" hidden>
+    <div class="answer-head">
+      <span class="q" id="answer-q"></span>
+      <button type="button" class="quiet" id="answer-reset">New conversation</button>
+      <button type="button" class="quiet" id="answer-close">Close</button>
+    </div>
+    <div class="answer-cols">
+      <section aria-live="polite"><h3>Answer</h3><div class="answer-text" id="answer-text"></div></section>
+      <section><h3>What the tools returned</h3><div id="answer-tools"></div></section>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

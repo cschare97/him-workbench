@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Audit log</h1><span class="meta">last {{ entries|length }} tool calls</span></div>
+<p class="lede">Every tool call is recorded here with its name and counts. Patient details and question text are never logged.</p>
+{% if not entries %}
+<p class="empty">Nothing logged yet. Run a duplicate scan or ask a question and it will appear here.</p>
+{% else %}
+<table>
+  <thead><tr><th>Time</th><th>Tool</th><th>Arguments</th><th>Result</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr><td class="mono">{{ e.ts }}</td><td class="mono">{{ e.tool }}</td><td class="mono dim">{{ e.args }}</td><td>{{ e.result }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

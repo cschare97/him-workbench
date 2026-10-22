@@ -58,6 +58,17 @@ python scripts/assistant_cli.py --model gemma4:e4b --demo-dups
 
 `--demo-dups` injects 15 known duplicates (ids start with `dup-`) so there is something to find. Set `HIM_MODEL` to skip the `--model` flag, or `OLLAMA_HOST` to use Ollama on another machine.
 
+### Web UI (optional)
+
+```
+pip install -e ".[ui]"
+python scripts/ui_cli.py --model gemma4:e4b --demo-dups     # http://127.0.0.1:5050
+```
+
+Tabs on the left (Patients, Duplicates, Data quality, Codes), a fixed bar on top, and the assistant prompt in the top right (press `/`). The answer panel shows the model's reply next to the raw tool results, so you can check it. It binds to 127.0.0.1 only, refuses other Host headers, accepts POSTs only as same-origin JSON, and loads nothing from the internet.
+
+**Your own textures:** the page textures are generated with CSS. To use your own images, put `patients.jpg`, `duplicates.jpg`, `quality.jpg`, `codes.jpg` or `header.jpg` in `data/ui-textures/` (gitignored). Only use images you have the right to use.
+
 ## How the matcher decides
 
 Blocking (only compare records that share a key such as same last-name sound and birth year), then weighted field comparison in the Fellegi-Sunter style: each field adds or subtracts log-likelihood points, names use Jaro-Winkler similarity, and a small nickname table treats Bob and Robert as the same first name. Score of 12 or more is `match`, 5 or more is `review`.
@@ -132,7 +143,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, quality, assistant, audit)
+src/him_workbench/   package code (matching, icd10, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)

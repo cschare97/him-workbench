@@ -81,7 +81,10 @@ def _prefer_words(query: str) -> list[str]:
     return [w for phrase, ws in PREFER.items() if phrase in q for w in ws]
 
 # Words people add that codes rarely contain. Only dropped when nothing matches every word.
-FILLER = {"complication", "complications", "problem", "problems", "issue", "issues"}
+FILLER = {"complication", "complications", "problem", "problems", "issue", "issues",
+          # question wrapper words: "what is the diagnosis code for cystitis"
+          "diagnosis", "diagnoses", "code", "codes", "icd", "icd10", "for", "the", "a", "an", "of",
+          "what", "whats", "is", "find", "show", "me", "give", "search", "lookup", "to", "i", "need"}
 
 
 def _expand_query(query: str) -> list[list[str]]:

@@ -179,3 +179,14 @@ def test_search_detail_reports_total_beyond_the_limit(tmp_path):
     idx = ICD10Index.from_file(p)
     results, ignored, total = idx.search_detail("hypertension", limit=2)
     assert len(results) == 2 and total == 4 and ignored == []
+
+
+def test_question_wrapper_words_are_dropped_and_reported(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("N300    Test acute cystitis\nN301    Test interstitial cystitis\nZ001    Test code for diagnosis follow up\n")
+    idx = ICD10Index.from_file(p)
+    res, ignored, total = idx.search_detail("diagnosis code for cystitis")
+    assert {e.code for e in res} == {"N300", "N301"} and total == 2
+    assert set(ignored) == {"diagnosis", "code", "for"}
+    # a query that already matches is left alone, even with these words in it
+    assert [e.code for e in idx.search_detail("diagnosis code")[0]] == ["Z001"]

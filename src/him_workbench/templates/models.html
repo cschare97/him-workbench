@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Models</h1><span class="meta">{{ model or 'none selected' }}</span></div>
+<p class="lede">The prompt bar uses a model running in Ollama on this computer. Pick one that supports tool calling. Nothing is sent to a cloud service.</p>
+{% if error %}
+<p class="note">{{ error }}</p>
+{% elif not names %}
+<p class="empty">Ollama is running but has no models. Pull one, for example <span class="mono">ollama pull gemma4:e4b</span>.</p>
+{% else %}
+<form id="model-picker">
+  {% for n in names %}
+  <label class="radio"><input type="radio" name="model" value="{{ n }}" {% if n == model %}checked{% endif %}> <span class="mono">{{ n }}</span></label>
+  {% endfor %}
+  <p style="margin-top:14px"><button type="submit">Use this model</button> <span class="meta" id="model-msg" role="status"></span></p>
+</form>
+{% endif %}
+{% endblock %}

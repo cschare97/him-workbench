@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Data quality</h1><span class="meta">{{ rep.records if rep else 0 }} records checked</span></div>
+{% if not rep %}
+<p class="empty">No patients loaded, so there is nothing to check.</p>
+{% else %}
+<p class="lede">These checks look at format and completeness. A birth date can be a real date and still be the wrong one; this page cannot tell.</p>
+
+<h3>Missing values</h3>
+<table>
+  <thead><tr><th>Field</th><th class="num">Records</th><th class="num">Share</th><th></th></tr></thead>
+  <tbody>
+  {% for f in fields %}
+    <tr>
+      <td>{{ f }}</td><td class="num">{{ rep.missing[f] }}</td>
+      <td class="num">{{ '%.1f'|format(100 * rep.missing[f] / rep.records) }}%</td>
+      <td class="dim">{% if f in rep.empty_fields %}Empty in every record, so probably not in the source file.{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Format problems</h3>
+<table>
+  <thead><tr><th>Check</th><th class="num">Records</th><th class="num">Share</th></tr></thead>
+  <tbody>
+  {% for key, label in labels.items() %}
+    <tr>
+      <td>{{ label[0]|upper }}{{ label[1:] }}</td>
+      <td class="num {{ 'flag' if rep.problems[key] else '' }}">{{ rep.problems[key] }}</td>
+      <td class="num">{{ '%.1f'|format(100 * rep.problems[key] / rep.records) }}%</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Same name and birth date</h3>
+<p>{{ rep.same_name_dob_groups }} group{{ '' if rep.same_name_dob_groups == 1 else 's' }} ({{ rep.same_name_dob_records }} records) share an exact name and birth date. The <a href="/duplicates">Duplicates</a> tab also finds close matches.</p>
+{% endif %}
+{% endblock %}
