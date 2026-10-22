@@ -190,3 +190,11 @@ def test_question_wrapper_words_are_dropped_and_reported(tmp_path):
     assert set(ignored) == {"diagnosis", "code", "for"}
     # a query that already matches is left alone, even with these words in it
     assert [e.code for e in idx.search_detail("diagnosis code")[0]] == ["Z001"]
+
+
+def test_biggest_matching_category_ranks_first(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("A0681  Test amebic cystitis\nN3000  Test acute cystitis without hematuria\n"
+                 "N3001  Test acute cystitis with hematuria\nN3090  Test cystitis, unspecified\n")
+    idx = ICD10Index.from_file(p)
+    assert [e.code for e in idx.search("cystitis")][-1] == "A0681"

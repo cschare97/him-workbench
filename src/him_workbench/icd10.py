@@ -10,6 +10,7 @@ Reference lookup only. This is not coding advice and not validated for billing.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -178,7 +179,10 @@ class ICD10Index:
                 exact = sum(1 for t in originals if t in words)
                 pref = sum(1 for t in prefer if any(w.startswith(t) for w in words))
                 scored.append((-direct, -exact, -pref, len(entry.description), entry.code, entry))
-        scored.sort(key=lambda x: x[:5])
+        # Codes from the category that matched most often come first: for "cystitis" that is the
+        # everyday N30 group, ahead of one-off infection codes like A06.81. A plain heuristic.
+        size = Counter(s[4][:3] for s in scored)
+        scored.sort(key=lambda x: (x[0], x[1], x[2], -size[x[4][:3]], x[3], x[4]))
         return [s[5] for s in scored]
 
     def search(self, query: str, limit: int = 10, synonyms: bool = True) -> list[Entry]:
