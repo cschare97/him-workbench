@@ -22,6 +22,60 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 - **Say what you did.** Tools report only what they actually did. A search that dropped a word says which one.
 - **Public sources only.** Built from published methods and public code sets.
 
+## How it fits together
+
+```mermaid
+flowchart TB
+    you(["You"])
+
+    subgraph ui["Interfaces: this computer only (127.0.0.1)"]
+        web["Web UI: webapp.py<br/>tabs + prompt bar"]
+        cli["Terminal tools: scripts/"]
+    end
+
+    subgraph brain["Assistant: assistant.py"]
+        asst["Tool-calling loop<br/>Grounding check flags any code no tool returned"]
+        llm["Ollama<br/>local model"]
+    end
+
+    subgraph core["Core modules: src/him_workbench"]
+        match["matching.py<br/>duplicate matcher"]
+        qual["quality.py<br/>data quality"]
+        icd["icd10.py<br/>code search"]
+        load["data.py, fhir.py<br/>patient loaders"]
+    end
+
+    subgraph net["Internet, opt-in only: --drugs, --education"]
+        rx["rxnorm.py"] -.-> nlm1(["NLM RxNorm API"])
+        ml["medlineplus.py"] -.-> nlm2(["MedlinePlus"])
+    end
+
+    audit[/"audit.py: logs/audit.jsonl<br/>tool names only"/]
+
+    subgraph data["Local data: data/ (gitignored)"]
+        syn[("Synthea patients<br/>CSV or FHIR")]
+        codes[("ICD-10-CM codes<br/>CDC file")]
+    end
+
+    you --> web
+    you --> cli
+    web -->|prompt bar| asst
+    cli --> asst
+    asst <-->|chat and tool calls| llm
+    asst -->|local tools| core
+    asst -.->|search_drug, disease_education| net
+    asst -->|every tool call| audit
+    load -->|reads| syn
+    load --> match
+    load --> qual
+    icd -->|reads| codes
+```
+
+- Everything outside the dotted lines runs on your computer. The two internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about.
+- The assistant never answers from the model's memory: codes, duplicates and data-quality numbers come from the tools, and the raw tool results are shown next to the model's answer.
+- The web UI's tabs (Patients, Duplicates, Data quality, Codes) call the core modules directly. Only the prompt bar goes through the assistant.
+- The audit log records which tool ran, never the question, the drug name, the code, or any patient details.
+
 ## Setup
 
 Needs Python 3.11+ and, for the assistant, [Ollama](https://ollama.com) running locally.
