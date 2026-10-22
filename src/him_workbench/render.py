@@ -40,6 +40,8 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
                 details.append(f"    ({x['credit']})")
         total = r.get("total_matches", len(pages))
         count = f"{len(pages)} of {total}" if total > len(pages) else f"{len(pages)}"
+        if r.get("code_description"):
+            details.insert(0, f"{r['code']} means: {r['code_description']}")
         return f"{count} MedlinePlus page(s) for {r.get('code') or r.get('term')}", details or [r.get("note", "")]
     if name == "lookup_icd10":
         return f"{r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}", []

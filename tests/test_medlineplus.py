@@ -138,3 +138,19 @@ def test_topics_real_shape_title_and_summary_inside_health_topic():
     assert total == 4 and pages[0]["title"] == "Anemia" and pages[0]["url"] == "https://medlineplus.gov/anemia.html"
     assert pages[0]["summary"].startswith("If you have anemia, your blood does not carry enough oxygen.")
     assert "<" not in pages[0]["summary"] and "iron" in pages[0]["summary"]
+
+
+def test_education_result_carries_the_code_meaning_and_a_parts_note(tmp_path):
+    from him_workbench.icd10 import ICD10Index
+    f = tmp_path / "icd10cm_codes_2099.txt"
+    f.write_text("J1282   Test pneumonia due to test virus\n")
+    two = {"feed": {"entry": [
+        {"title": {"_value": "Virus"}, "link": [{"href": "https://medlineplus.gov/virus.html"}], "summary": {"_value": "<p>v</p>"}},
+        {"title": {"_value": "Pneumonia"}, "link": [{"href": "https://medlineplus.gov/pneumonia.html"}], "summary": {"_value": "<p>p</p>"}}]}}
+    call = {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "disease_education", "arguments": {"query": "J12.82"}}}]}
+    replies = iter([call, {"role": "assistant", "content": "ok"}])
+    bot = Assistant(lambda m, t: next(replies), icd=ICD10Index.from_file(f), education=client(tmp_path, two))
+    bot.ask("x")
+    msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
+    assert msg["code_description"] == "Test pneumonia due to test virus"
+    assert "cover its parts" in msg["note"] or "describe the parts" in msg["note"]

@@ -41,6 +41,8 @@ SYSTEM_PROMPT = (
     "doses, interactions, or what a drug is for. Give an RxNorm ID only if the tool returned it, and say what kind of ID it is (ingredient, brand, or a specific tablet) from the result's type. The ingredient is the ID for the drug itself.\n"
     "- Disease education: only through disease_education (when offered). Summarize only what the result says, "
     "name MedlinePlus as the source, and give the link. Do not add medical advice or treatment details.\n"
+    "- When disease_education returns several pages for one code, the code is one condition: state its "
+    "meaning from code_description and say the pages cover its parts. Never present them as separate diseases.\n"
     "- Call the tool again for every new question. Never answer a new question from earlier tool results.\n"
     "- A disease-name search matches words only. List only the topics that fit the question and say plainly "
     "when some results do not fit. If none fit, say so and offer to look up the ICD-10-CM code instead.\n"
@@ -145,7 +147,18 @@ class Assistant:
             if name == "disease_education":
                 if not self.education:
                     return {"error": "disease education is not turned on (start the app with --education)"}
-                return self.education.education(str(args.get("query") or args.get("code") or ""))
+                query = str(args.get("query") or args.get("code") or "")
+                out = self.education.education(query)
+                if out.get("code") and self.icd:
+                    entry = self.icd.lookup(out["code"])
+                    if entry:
+                        out["code_description"] = entry.description
+                    if len(out.get("results", [])) > 1:
+                        out["note"] = (out.get("note", "") + " MedlinePlus has one page per topic, so a code that "
+                                       "combines more than one topic returns a page for each. The pages describe the "
+                                       "parts, not the combined condition. Tell the user what the code itself means "
+                                       "(code_description) and that these pages cover its parts.").strip()
+                return out
             if name == "scan_duplicates":
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
