@@ -56,6 +56,11 @@ def test_codes_page_finds_code(client):
     assert b"A00.0" in client.get("/codes?q=alpha", headers=HDR).data
 
 
+def test_sources_page_says_where_patients_came_from(tmp_path):
+    app = make(tmp_path, patient_source="FHIR files from data/synthea/fhir (3 patients from 5 files)")
+    assert b"Read from: FHIR files from data/synthea/fhir" in app.test_client().get("/sources", headers=HDR).data
+
+
 def test_foreign_host_is_refused(client):
     assert client.get("/patients", headers={"Host": "evil.example"}).status_code == 403
 

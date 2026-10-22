@@ -41,7 +41,7 @@ def _host_ok(value: str | None) -> bool:
 
 def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
-               models_lister=None, drugs=None, education=None) -> Flask:
+               models_lister=None, drugs=None, education=None, patient_source: str = "") -> Flask:
     app = Flask(__name__)
     patients = patients or []
     by_id = {p.id: p for p in patients}
@@ -173,7 +173,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     @app.get("/sources")
     def sources_page():
         return render_template("sources.html", active=None, nav="sources", page_title="Data sources",
-                               icd=icd, n_patients=len(patients), empty=(st.quality.empty_fields if st.quality else []))
+                               icd=icd, n_patients=len(patients), patient_source=patient_source, empty=(st.quality.empty_fields if st.quality else []))
 
     @app.get("/about")
     def about_page():

@@ -4,6 +4,7 @@
   python scripts/assistant_cli.py --model NAME    (starts the chat)
   add --drugs to turn on drug-name lookup (sends drug names to NLM over the internet)
   add --education to turn on disease education from MedlinePlus (sends codes and disease names to NLM over the internet)
+  add --fhir PATH to read patients from FHIR files (a Patient, a Bundle, or NDJSON; a file or a folder)
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
 
 Needs Ollama running. To use Ollama on another machine: export OLLAMA_HOST=http://<ip>:11434
@@ -15,7 +16,8 @@ import random
 import sys
 from pathlib import Path
 
-from evaluate_matching import CORRUPTIONS, load
+from evaluate_matching import CORRUPTIONS
+from him_workbench.data import patients_from_args
 from him_workbench.assistant import Assistant, list_models, ollama_chat
 from him_workbench.icd10 import ICD10Index
 from him_workbench.matching import Patient
@@ -69,8 +71,7 @@ def main() -> None:
 
     icd_path = find_icd()
     icd = ICD10Index.from_file(icd_path) if icd_path else None
-    pat_path = Path("data/synthea/csv/patients.csv")
-    patients = load(pat_path) if pat_path.exists() else []
+    patients = patients_from_args(args)
     if "--demo-dups" in args and patients:
         patients = with_demo_dups(patients)
         print("(15 synthetic duplicates injected; their ids start with 'dup-')")

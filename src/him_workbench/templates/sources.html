@@ -4,7 +4,7 @@
 <table>
   <thead><tr><th>Source</th><th>Loaded</th></tr></thead>
   <tbody>
-    <tr><td>Synthetic patients (Synthea)</td><td>{{ n_patients }} records{% if not n_patients %}. Run <span class="mono">./scripts/generate_synthea.sh</span>.{% endif %}</td></tr>
+    <tr><td>Synthetic patients (Synthea)</td><td>{{ n_patients }} records{% if patient_source %}. Read from: {{ patient_source }}{% endif %}{% if not n_patients %}. Run <span class="mono">./scripts/generate_synthea.sh</span>.{% endif %}</td></tr>
     <tr><td>ICD-10-CM code descriptions (CDC/NCHS)</td><td>{% if icd %}<span class="mono">{{ icd.source }}</span>, {{ icd|length }} codes{% else %}Not loaded. Run <span class="mono">./scripts/fetch_icd10.sh</span>.{% endif %}</td></tr>
     <tr><td>Drug names (RxNorm, NLM)</td><td>{% if drugs_on %}On. Names you ask about are sent to NLM's RxNav service.{% else %}Off. Start with <span class="mono">--drugs</span> to turn it on.{% endif %}</td></tr>
     <tr><td>Disease education (MedlinePlus Connect, NLM)</td><td>{% if education_on %}On. Codes and disease names you ask about are sent to NLM's MedlinePlus service.{% else %}Off. Start with <span class="mono">--education</span> to turn it on.{% endif %}</td></tr>

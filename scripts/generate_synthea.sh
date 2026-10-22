@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Generates synthetic patients with Synthea into data/synthea (gitignored).
 # Usage: ./scripts/generate_synthea.sh [population] [seed]
+# FHIR_EXPORT=true ./scripts/generate_synthea.sh   also writes FHIR bundles to data/synthea/fhir/
 set -euo pipefail
 cd "$(dirname "$0")/.."
 JAR="${SYNTHEA_JAR:-$HOME/Documents/Synthea/synthea-with-dependencies.jar}"
@@ -14,7 +15,7 @@ mkdir -p data/synthea
 java -jar "$JAR" -p "$POP" -s "$SEED" \
   --exporter.baseDirectory="$(pwd)/data/synthea" \
   --exporter.csv.export=true \
-  --exporter.fhir.export=false \
+  --exporter.fhir.export="${FHIR_EXPORT:-false}" \
   --generate.append_numbers_to_person_names=false \
-  Massachusetts
+  California
 echo "Done. Patients file: data/synthea/csv/patients.csv"

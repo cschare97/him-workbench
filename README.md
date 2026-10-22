@@ -79,6 +79,15 @@ Adds one tool, `disease_education`, that takes an ICD-10-CM code or a disease na
 
 > Health information from MedlinePlus.gov, a service of the U.S. National Library of Medicine. NLM is not responsible for this product and does not endorse or recommend it.
 
+### Reading FHIR patients (local)
+
+```
+FHIR_EXPORT=true ./scripts/generate_synthea.sh                 # also writes FHIR bundles to data/synthea/fhir/
+python scripts/ui_cli.py --model gemma4:e4b --fhir data/synthea/fhir
+```
+
+`--fhir PATH` (on `ui_cli.py` and `assistant_cli.py`) reads FHIR Patient resources instead of the Synthea CSV: a single Patient, a Bundle, or NDJSON (as in the FHIR Bulk Data export), from a file or a whole folder. It runs locally and makes no network calls. It prints what it read and what it left out (deceased, no usable name, unreadable files). Mapping follows US Core Patient: official name first, `male`/`female` to M/F (`other` and `unknown` stay blank so they never count as a conflict), partial birth dates kept as written, `postalCode` kept as written.
+
 ### Web UI (optional)
 
 ```
@@ -164,7 +173,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, rxnorm, medlineplus, quality, assistant, audit, web UI)
+src/him_workbench/   package code (matching, icd10, fhir, rxnorm, medlineplus, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)

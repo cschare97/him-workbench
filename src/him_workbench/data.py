@@ -31,3 +31,28 @@ def load_synthea_patients(path: str | Path, include_deceased: bool = False) -> l
                 zip=row.get("ZIP", ""),
             ))
     return out
+
+
+def load_patients(args: list[str], default_csv: str | Path = "data/synthea/csv/patients.csv") -> tuple[list[Patient], str]:
+    """Patients for the command-line tools plus a plain-words label of where they came from.
+    '--fhir PATH' reads FHIR files, otherwise Synthea's CSV."""
+    if "--fhir" in args:
+        from .fhir import describe, load_fhir_patients
+        i = args.index("--fhir")
+        if i + 1 >= len(args):
+            raise SystemExit("--fhir needs a file or folder: --fhir data/synthea/fhir")
+        try:
+            patients, stats = load_fhir_patients(args[i + 1])
+        except FileNotFoundError as exc:
+            raise SystemExit(str(exc))
+        print(describe(stats))
+        left_out = f", {stats['deceased_left_out']} deceased left out" if stats["deceased_left_out"] else ""
+        return patients, f"FHIR files from {args[i + 1]} ({stats['patients']} patients from {stats['files']} files{left_out})"
+    csv_path = Path(default_csv)
+    if csv_path.exists():
+        return load_synthea_patients(csv_path), f"Synthea CSV file {csv_path}"
+    return [], ""
+
+
+def patients_from_args(args: list[str], default_csv: str | Path = "data/synthea/csv/patients.csv") -> list[Patient]:
+    return load_patients(args, default_csv)[0]
