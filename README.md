@@ -58,6 +58,17 @@ python scripts/assistant_cli.py --model gemma4:e4b --demo-dups
 
 `--demo-dups` injects 15 known duplicates (ids start with `dup-`) so there is something to find. Set `HIM_MODEL` to skip the `--model` flag, or `OLLAMA_HOST` to use Ollama on another machine.
 
+### Drug name lookup (optional, uses the internet)
+
+```
+python scripts/assistant_cli.py --model gemma4:e4b --drugs
+python scripts/ui_cli.py --model gemma4:e4b --drugs
+```
+
+Adds one tool, `search_drug`, that looks up drug names and RxNorm IDs through NLM's public RxNorm API (no key or license needed for these endpoints). **The drug name you ask about is sent to NLM's servers**, so it is off unless you pass `--drugs`. It returns names, types and IDs only: no doses, interactions, or advice. Results are cached on this computer for 24 hours in `data/cache/` (gitignored). RxClass is not used, because it carries SNOMED CT content under a separate license.
+
+> This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.
+
 ### Web UI (optional)
 
 ```
@@ -143,7 +154,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, quality, assistant, audit, web UI)
+src/him_workbench/   package code (matching, icd10, rxnorm, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)

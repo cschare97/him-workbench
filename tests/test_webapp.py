@@ -102,3 +102,11 @@ def test_no_external_urls_in_ui_files():
 def test_codes_page_finds_a_code_inside_a_sentence(client):
     html = client.get("/codes?q=what+disease+is+code+a00.0", headers=HDR).data
     assert b"A00.0" in html and b"Test condition alpha" in html
+
+
+def test_about_page_carries_nlm_attribution_only_when_drugs_are_on(tmp_path):
+    from him_workbench.rxnorm import RxNormClient
+    assert b"National Library of Medicine" not in make(tmp_path).test_client().get("/about", headers=HDR).data
+    app = make(tmp_path, drugs=RxNormClient(fetch=lambda u: {}, cache_path=tmp_path / "rx.json"))
+    html = app.test_client().get("/about", headers=HDR).data
+    assert b"National Library of Medicine" in html and b"does not endorse" in html

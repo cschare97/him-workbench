@@ -20,6 +20,7 @@ from . import audit
 from .icd10 import ICD10Index, format_code, normalize_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
+from .rxnorm import RxNormClient, RxNormError
 
 SYSTEM_PROMPT = (
     "You are a reference assistant for Health Information Management work.\n"
@@ -35,6 +36,8 @@ SYSTEM_PROMPT = (
     "- If a result says the list is partial, say so. Never present a partial list as complete.\n"
     "- Keep answers short. Do not list checks whose count is zero; say 'no problems found' instead.\n"
     "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
+    "- Medications: only drug name and RxNorm ID lookup is available (search_drug, when offered). Never state "
+    "doses, interactions, or what a drug is for. Give an RxNorm ID only if the tool returned it, and say what kind of ID it is (ingredient, brand, or a specific tablet) from the result's type. The ingredient is the ID for the drug itself.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
 
@@ -63,6 +66,11 @@ TOOLS = [
             "id_a": {"type": "string"}, "id_b": {"type": "string"}}, "required": ["id_a", "id_b"]}}},
 ]
 
+DRUG_TOOL = {"type": "function", "function": {
+    "name": "search_drug",
+    "description": "Look up a drug name in RxNorm (NLM). Returns names, types and RxNorm IDs only. No doses or advice.",
+    "parameters": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}}
+
 _CODE_IN_TEXT = re.compile(r"\b[A-Z]\d[0-9A-Z](?:\.[0-9A-Z]{1,4})?\b")
 
 ChatFn = Callable[[list, list], dict]
@@ -72,8 +80,11 @@ class Assistant:
     def __init__(self, chat_fn: ChatFn, icd: ICD10Index | None = None,
                  patients: list[Patient] | None = None, max_steps: int = 5,
                  on_tool: Callable[[str, dict], None] | None = None,
-                 on_result: Callable[[str, dict], None] | None = None):
+                 on_result: Callable[[str, dict], None] | None = None,
+                 drugs: RxNormClient | None = None):
         self.chat = chat_fn
+        self.drugs = drugs
+        self.tools = TOOLS + [DRUG_TOOL] if drugs else TOOLS
         self.icd = icd
         self.patients = patients or []
         self._by_id = {p.id: p for p in self.patients}
@@ -113,6 +124,10 @@ class Assistant:
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
                 return self.icd.describe(str(args.get("code", "")))
+            if name == "search_drug":
+                if not self.drugs:
+                    return {"error": "drug lookup is not turned on (start the app with --drugs)"}
+                return self.drugs.search(str(args.get("name", "")))
             if name == "scan_duplicates":
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
@@ -144,6 +159,8 @@ class Assistant:
                 return {"a": r.a, "b": r.b, "score": r.score, "label": r.label,
                         "reasons": r.reasons, "fields": r.detail}
             return {"error": f"unknown tool: {name}"}
+        except RxNormError as exc:
+            return {"error": str(exc)}
         except Exception as exc:  # report, never crash the loop
             return {"error": f"{type(exc).__name__}: {exc}"}
 
@@ -155,7 +172,7 @@ class Assistant:
     def ask(self, question: str) -> str:
         self.messages.append({"role": "user", "content": question})
         for _ in range(self.max_steps):
-            msg = self.chat(self.messages, TOOLS)
+            msg = self.chat(self.messages, self.tools)
             calls = msg.get("tool_calls") or []
             self.messages.append({"role": "assistant", "content": msg.get("content", ""),
                                   **({"tool_calls": calls} if calls else {})})

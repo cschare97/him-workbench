@@ -21,6 +21,7 @@ from .icd10 import ICD10Index, find_code_in_text, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
+from .rxnorm import ATTRIBUTION
 
 TEXTURE_NAMES = ("patients", "duplicates", "quality", "codes", "header")
 TABS = [
@@ -39,7 +40,7 @@ def _host_ok(value: str | None) -> bool:
 
 def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
-               models_lister=None) -> Flask:
+               models_lister=None, drugs=None) -> Flask:
     app = Flask(__name__)
     patients = patients or []
     by_id = {p.id: p for p in patients}
@@ -53,7 +54,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     st.quality = analyze(patients) if patients else None
 
     def new_bot() -> Assistant | None:
-        return Assistant(chat_factory(st.model), icd=icd, patients=patients) if st.model else None
+        return Assistant(chat_factory(st.model), icd=icd, patients=patients, drugs=drugs) if st.model else None
 
     st.bot = new_bot()
 
@@ -88,7 +89,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                         if st.quality else "no data"),
             "codes": f"ICD-10-CM {icd.year}" if icd and icd.year else "ICD-10-CM",
         }
-        return {"model": st.model, "tabs": TABS, "tab_counts": counts, "local_textures": local}
+        return {"model": st.model, "drugs_on": drugs is not None, "attribution": ATTRIBUTION, "tabs": TABS, "tab_counts": counts, "local_textures": local}
 
     def name_of(pid: str) -> str:
         p = by_id.get(pid)

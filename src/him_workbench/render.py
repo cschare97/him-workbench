@@ -25,6 +25,12 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
             details.append(f"(no code matched every word; ignored: {', '.join(r['ignored_words'])})")
         details += [f"{x['code']:9} {x['description']}" for x in r["results"]]
         return f"{count} code(s) from {r.get('source_file')}", details
+    if name == "search_drug":
+        shown, total = len(r["results"]), r.get("total_matches", len(r["results"]))
+        count = f"{shown} of {total}" if total > shown else f"{shown}"
+        details = [f"(closest matches, not an exact name match)"] if r.get("match") == "approximate" else []
+        details += [f"{x['rxcui']:9} {x.get('type_label', x['type']):22} {x['name']}" for x in r["results"]]
+        return f"{count} drug concept(s) from {r.get('source')}", details
     if name == "lookup_icd10":
         return f"{r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}", []
     if name == "data_quality_report":

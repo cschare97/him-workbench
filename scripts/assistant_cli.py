@@ -2,6 +2,7 @@
 
   python scripts/assistant_cli.py                 (lists your Ollama models)
   python scripts/assistant_cli.py --model NAME    (starts the chat)
+  add --drugs to turn on drug-name lookup (sends drug names to NLM over the internet)
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
 
 Needs Ollama running. To use Ollama on another machine: export OLLAMA_HOST=http://<ip>:11434
@@ -18,6 +19,7 @@ from him_workbench.assistant import Assistant, list_models, ollama_chat
 from him_workbench.icd10 import ICD10Index
 from him_workbench.matching import Patient
 from him_workbench.render import result_lines
+from him_workbench.rxnorm import ATTRIBUTION, RxNormClient
 
 BANNER = ("Synthetic data only. Do not enter real patient information.\n"
           "Reference tool, not coding, billing, or clinical advice. Type 'quit' to exit.\n")
@@ -74,7 +76,11 @@ def main() -> None:
     print(f"Model: {model} | ICD-10: {icd.source if icd else 'NOT LOADED'} | "
           f"Synthetic patients: {len(patients)}\n")
 
-    bot = Assistant(ollama_chat(model), icd=icd, patients=patients,
+    drugs = None
+    if "--drugs" in args:
+        drugs = RxNormClient()
+        print("Drug lookup ON: drug names you ask about are sent to NLM's RxNav service.\n" + ATTRIBUTION + "\n")
+    bot = Assistant(ollama_chat(model), icd=icd, patients=patients, drugs=drugs,
                     on_tool=lambda n, a: print(f"  [tool] {n} {a}"),
                     on_result=show_result)
     while True:

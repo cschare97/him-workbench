@@ -6,4 +6,7 @@
 <p>Synthetic data only. This is not for clinical use, billing, or coding decisions.</p>
 <p>The model's answer can be wrong. The panel that opens from the prompt bar always shows what the tools actually returned beside the answer. When the two disagree, trust the tool results.</p>
 <p>A duplicate score is evidence, not a verdict. Pairs marked Review are held for a person to decide, and the reason is shown.</p>
+{% if drugs_on %}<h3>Drug lookup</h3>
+<p>Drug names you ask about are sent to NLM's RxNorm service. Results show names and RxNorm IDs only, not doses, interactions, or advice.</p>
+<p class="note info">{{ attribution }}</p>{% endif %}
 {% endblock %}
