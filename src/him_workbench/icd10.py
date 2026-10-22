@@ -104,6 +104,20 @@ def real_words(ignored: list[str]) -> list[str]:
     return [w for w in ignored if w not in FILLER]
 
 
+def _singular_alts(tok: str) -> list[str]:
+    """Plural typed, singular in the code description ('ulcers' -> 'ulcer'). A trailing '$' means the
+    whole word must match, so 'ulcers' finds 'ulcer' but not 'ulcerative'."""
+    if len(tok) > 4 and tok.endswith("ies"):
+        return [tok[:-3] + "y$"]
+    if len(tok) > 3 and tok.endswith("s") and not tok.endswith(("ss", "us", "is")):
+        return [tok[:-1] + "$"]
+    return []
+
+
+def _hit(word: str, alt: str) -> bool:
+    return word == alt[:-1] if alt.endswith("$") else word.startswith(alt)
+
+
 def _expand_query(query: str) -> list[list[str]]:
     """Return, per required term, the list of alternative word-prefixes that satisfy it."""
     q = " ".join(_words(query))
@@ -114,7 +128,7 @@ def _expand_query(query: str) -> list[list[str]]:
             required.extend([[a] for a in alts])
     for tok in q.split():
         group = _SYN.get(tok, [])
-        required.append([tok] + [a for a in group if a != tok])  # typed word first
+        required.append([tok] + [a for a in group if a != tok] + ([] if tok in FILLER else _singular_alts(tok)))  # typed word first
     return required
 
 
@@ -190,7 +204,7 @@ class ICD10Index:
         originals = [alts[0] for alts in terms]
         scored = []
         for entry, words in zip(self.entries, self._words):
-            if all(any(w.startswith(a) for a in alts for w in words) for alts in terms):
+            if all(any(_hit(w, a) for a in alts for w in words) for alts in terms):
                 direct = sum(1 for t in originals if any(w.startswith(t) for w in words))
                 exact = sum(1 for t in originals if t in words)
                 pref = sum(1 for t in prefer if any(w.startswith(t) for w in words))

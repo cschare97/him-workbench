@@ -217,3 +217,42 @@ def test_biggest_matching_category_ranks_first(tmp_path):
                  "N3001  Test acute cystitis with hematuria\nN3090  Test cystitis, unspecified\n")
     idx = ICD10Index.from_file(p)
     assert [e.code for e in idx.search("cystitis")][-1] == "A0681"
+
+
+PLURAL_FIXTURE = """\
+K279    Test peptic ulcer, site unspecified
+K51     Test ulcerative colitis
+I770    Test acquired arteriovenous fistula
+I771    Test stricture of artery
+E113    Test diabetic retinopathy
+E119    Test type 2 diabetes mellitus without complications
+J00     Test acute bronchitis
+"""
+
+
+@pytest.fixture
+def plural_idx(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text(PLURAL_FIXTURE)
+    return ICD10Index.from_file(p)
+
+
+def test_plural_typed_finds_singular_in_code_text(plural_idx):
+    assert [e.code for e in plural_idx.search("peptic ulcers")] == ["K279"]
+    assert [e.code for e in plural_idx.search("arteries")] == ["I771"]
+
+
+def test_plural_rule_does_not_widen_to_look_alikes(plural_idx):
+    assert [e.code for e in plural_idx.search("ulcers")] == ["K279"]          # not ulcerative colitis
+    assert [e.code for e in plural_idx.search("diabetes")] == ["E119"]        # not diabetic retinopathy
+    assert [e.code for e in plural_idx.search("bronchitis")] == ["J00"]
+
+
+def test_typed_singular_still_works_as_before(plural_idx):
+    assert {e.code for e in plural_idx.search("ulcer")} == {"K279", "K51"}
+
+
+def test_filler_words_stay_literal_so_relaxed_search_still_kicks_in(diab_idx):
+    # "complications" must not turn into "complication" and stop the search at one code
+    res, ignored, total = diab_idx.search_detail("type 2 diabetes kidney complications")
+    assert {e.code for e in res} == {"E1121", "E1122", "E1129"} and ignored == ["complications"]
