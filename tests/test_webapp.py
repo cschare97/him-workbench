@@ -97,3 +97,8 @@ def test_no_external_urls_in_ui_files():
         text = f.read_text(encoding="utf-8")
         text = text.replace("http://www.w3.org/2000/svg", "")
         assert not re.search(r"https?://", text), f.name
+
+
+def test_codes_page_finds_a_code_inside_a_sentence(client):
+    html = client.get("/codes?q=what+disease+is+code+a00.0", headers=HDR).data
+    assert b"A00.0" in html and b"Test condition alpha" in html

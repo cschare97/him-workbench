@@ -193,6 +193,13 @@ def test_real_words_separates_filler_from_unknown_terms():
     assert real_words(["diagnosis", "code", "for", "pernicious"]) == ["pernicious"]
 
 
+def test_find_code_in_text():
+    from him_workbench.icd10 import find_code_in_text
+    assert find_code_in_text("disease for code for d51.0") == "D51.0"
+    assert find_code_in_text("what is e11.9?") == "E11.9"
+    assert find_code_in_text("type 2 diabetes") is None
+
+
 def test_question_wrapper_words_are_dropped_and_reported(tmp_path):
     p = tmp_path / "icd10cm_codes_2099.txt"
     p.write_text("N300    Test acute cystitis\nN301    Test interstitial cystitis\nZ001    Test code for diagnosis follow up\n")

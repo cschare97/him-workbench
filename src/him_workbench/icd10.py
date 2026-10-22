@@ -42,6 +42,15 @@ def looks_like_code(text: str) -> bool:
     return bool(CODE_RE.match(normalize_code(text)))
 
 
+def find_code_in_text(text: str) -> str | None:
+    """A code-shaped token inside a sentence, e.g. 'what is d51.0' -> 'D51.0'. Only the shape;
+    the caller checks it against the loaded file."""
+    for tok in re.findall(r"[A-Za-z]\d[0-9A-Za-z](?:\.[0-9A-Za-z]{1,4})?", text):
+        if looks_like_code(tok):
+            return format_code(tok)
+    return None
+
+
 def _words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
