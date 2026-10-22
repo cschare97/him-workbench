@@ -31,6 +31,16 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
         details = [f"(closest matches, not an exact name match)"] if r.get("match") == "approximate" else []
         details += [f"{x['rxcui']:9} {x.get('type_label', x['type']):22} {x['name']}" for x in r["results"]]
         return f"{count} drug concept(s) from {r.get('source')}", details
+    if name == "disease_education":
+        pages = r["results"]
+        details = []
+        for x in pages:
+            details += [x["title"], f"    {x['summary']}", f"    {x['url']}"]
+            if x.get("credit"):
+                details.append(f"    ({x['credit']})")
+        total = r.get("total_matches", len(pages))
+        count = f"{len(pages)} of {total}" if total > len(pages) else f"{len(pages)}"
+        return f"{count} MedlinePlus page(s) for {r.get('code') or r.get('term')}", details or [r.get("note", "")]
     if name == "lookup_icd10":
         return f"{r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}", []
     if name == "data_quality_report":

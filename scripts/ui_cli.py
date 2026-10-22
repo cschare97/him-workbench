@@ -3,6 +3,7 @@
   pip install -e ".[ui]"
   python scripts/ui_cli.py --model gemma4:e4b      (open http://127.0.0.1:5050)
   add --drugs to turn on drug-name lookup (sends drug names to NLM over the internet)
+  add --education to turn on disease education from MedlinePlus (sends codes and disease names to NLM over the internet)
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
 
 Binds to 127.0.0.1 only. Synthetic data only. The model is optional: without one, every page
@@ -16,6 +17,7 @@ from pathlib import Path
 from assistant_cli import with_demo_dups
 from him_workbench.data import find_icd_file, load_synthea_patients
 from him_workbench.icd10 import ICD10Index
+from him_workbench.medlineplus import MedlinePlusClient
 from him_workbench.rxnorm import RxNormClient
 
 
@@ -44,7 +46,10 @@ def main() -> None:
     drugs = RxNormClient() if "--drugs" in args else None
     if drugs:
         print("Drug lookup ON: drug names you ask about are sent to NLM's RxNav service.")
-    create_app(icd=icd, patients=patients, model=model, drugs=drugs).run(host="127.0.0.1", port=port)
+    education = MedlinePlusClient() if "--education" in args else None
+    if education:
+        print("Disease education ON: codes and disease names you ask about are sent to NLM's MedlinePlus service.")
+    create_app(icd=icd, patients=patients, model=model, drugs=drugs, education=education).run(host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":

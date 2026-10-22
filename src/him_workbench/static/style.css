@@ -112,7 +112,7 @@ a:hover { color: #fff; }
 
 /* prompt bar, top right */
 .ask {
-  margin-left: auto; width: min(360px, 40vw); height: 34px; display: flex; align-items: center; gap: 8px;
+  margin-left: auto; width: min(480px, 46vw); height: 34px; display: flex; align-items: center; gap: 8px;
   padding: 0 10px 0 12px; border-radius: 18px;
   background: rgba(0, 0, 0, .55); border: 1px solid #3a4c54;
 }

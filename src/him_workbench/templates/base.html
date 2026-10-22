@@ -19,8 +19,10 @@
     </nav>
     <form class="ask" id="ask-form" role="search" autocomplete="off">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3.5h12v7H8.5L5 13.5v-3H2z" stroke-linejoin="round"/></svg>
-      <label class="sr" for="ask-input">Ask about patients or codes</label>
-      <input id="ask-input" type="text" maxlength="500" placeholder="Ask about patients or codes">
+      {% set items = ['patients', 'codes'] + (['drugs'] if drugs_on else []) + (['diseases'] if education_on else []) %}
+      {% set ask = 'Ask about ' ~ (items|join(', ')) %}
+      <label class="sr" for="ask-input">{{ ask }}</label>
+      <input id="ask-input" type="text" maxlength="500" placeholder="{{ ask }}">
       <kbd aria-hidden="true">/</kbd>
     </form>
   </header>

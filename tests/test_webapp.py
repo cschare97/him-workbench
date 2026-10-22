@@ -110,3 +110,10 @@ def test_about_page_carries_nlm_attribution_only_when_drugs_are_on(tmp_path):
     app = make(tmp_path, drugs=RxNormClient(fetch=lambda u: {}, cache_path=tmp_path / "rx.json"))
     html = app.test_client().get("/about", headers=HDR).data
     assert b"National Library of Medicine" in html and b"does not endorse" in html
+
+
+def test_about_page_carries_medlineplus_attribution_only_when_education_is_on(tmp_path):
+    from him_workbench.medlineplus import MedlinePlusClient
+    assert b"MedlinePlus.gov" not in make(tmp_path).test_client().get("/about", headers=HDR).data
+    app = make(tmp_path, education=MedlinePlusClient(fetch=lambda u: {}, cache_path=tmp_path / "m.json"))
+    assert b"MedlinePlus.gov" in app.test_client().get("/about", headers=HDR).data

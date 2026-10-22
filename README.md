@@ -69,6 +69,16 @@ Adds one tool, `search_drug`, that looks up drug names and RxNorm IDs through NL
 
 > This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.
 
+### Disease education (optional, uses the internet)
+
+```
+python scripts/ui_cli.py --model gemma4:e4b --education
+```
+
+Adds one tool, `disease_education`, that takes an ICD-10-CM code or a disease name and returns the matching patient-education pages from NLM's MedlinePlus Connect service: title, a short summary, and a link to the MedlinePlus page. **The code or name you ask about is sent to NLM's servers**, so it is off unless you pass `--education`. A code uses MedlinePlus Connect; a name searches MedlinePlus Health Topics. Results are cached on this computer for 24 hours in `data/cache/` (gitignored). Summaries are shortened and always link back to MedlinePlus; pages are not copied. Not medical advice.
+
+> Health information from MedlinePlus.gov, a service of the U.S. National Library of Medicine. NLM is not responsible for this product and does not endorse or recommend it.
+
 ### Web UI (optional)
 
 ```
@@ -154,7 +164,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, rxnorm, quality, assistant, audit, web UI)
+src/him_workbench/   package code (matching, icd10, rxnorm, medlineplus, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)

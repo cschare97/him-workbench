@@ -20,6 +20,7 @@ from . import audit
 from .icd10 import ICD10Index, format_code, normalize_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
+from .medlineplus import MedlinePlusClient, MedlinePlusError
 from .rxnorm import RxNormClient, RxNormError
 
 SYSTEM_PROMPT = (
@@ -38,6 +39,13 @@ SYSTEM_PROMPT = (
     "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
     "- Medications: only drug name and RxNorm ID lookup is available (search_drug, when offered). Never state "
     "doses, interactions, or what a drug is for. Give an RxNorm ID only if the tool returned it, and say what kind of ID it is (ingredient, brand, or a specific tablet) from the result's type. The ingredient is the ID for the drug itself.\n"
+    "- Disease education: only through disease_education (when offered). Summarize only what the result says, "
+    "name MedlinePlus as the source, and give the link. Do not add medical advice or treatment details.\n"
+    "- Call the tool again for every new question. Never answer a new question from earlier tool results.\n"
+    "- A disease-name search matches words only. List only the topics that fit the question and say plainly "
+    "when some results do not fit. If none fit, say so and offer to look up the ICD-10-CM code instead.\n"
+    "- Keep education answers short: one line per fitting topic (title and a one-sentence gist taken from its "
+    "summary) plus its link. Do not reprint whole summaries.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
 
@@ -71,6 +79,11 @@ DRUG_TOOL = {"type": "function", "function": {
     "description": "Look up a drug name in RxNorm (NLM). Returns names, types and RxNorm IDs only. No doses or advice.",
     "parameters": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}}}
 
+EDU_TOOL = {"type": "function", "function": {
+    "name": "disease_education",
+    "description": "Get patient-education pages (title, short summary, link) from MedlinePlus for a disease. Pass an ICD-10-CM code (like E11.9) or a disease name (like 'pernicious anemia').",
+    "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "ICD-10-CM code or disease name"}}, "required": ["query"]}}}
+
 _CODE_IN_TEXT = re.compile(r"\b[A-Z]\d[0-9A-Z](?:\.[0-9A-Z]{1,4})?\b")
 
 ChatFn = Callable[[list, list], dict]
@@ -81,10 +94,11 @@ class Assistant:
                  patients: list[Patient] | None = None, max_steps: int = 5,
                  on_tool: Callable[[str, dict], None] | None = None,
                  on_result: Callable[[str, dict], None] | None = None,
-                 drugs: RxNormClient | None = None):
+                 drugs: RxNormClient | None = None, education: MedlinePlusClient | None = None):
         self.chat = chat_fn
         self.drugs = drugs
-        self.tools = TOOLS + [DRUG_TOOL] if drugs else TOOLS
+        self.education = education
+        self.tools = TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
         self.icd = icd
         self.patients = patients or []
         self._by_id = {p.id: p for p in self.patients}
@@ -128,6 +142,10 @@ class Assistant:
                 if not self.drugs:
                     return {"error": "drug lookup is not turned on (start the app with --drugs)"}
                 return self.drugs.search(str(args.get("name", "")))
+            if name == "disease_education":
+                if not self.education:
+                    return {"error": "disease education is not turned on (start the app with --education)"}
+                return self.education.education(str(args.get("query") or args.get("code") or ""))
             if name == "scan_duplicates":
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
@@ -159,7 +177,7 @@ class Assistant:
                 return {"a": r.a, "b": r.b, "score": r.score, "label": r.label,
                         "reasons": r.reasons, "fields": r.detail}
             return {"error": f"unknown tool: {name}"}
-        except RxNormError as exc:
+        except (RxNormError, MedlinePlusError) as exc:
             return {"error": str(exc)}
         except Exception as exc:  # report, never crash the loop
             return {"error": f"{type(exc).__name__}: {exc}"}
