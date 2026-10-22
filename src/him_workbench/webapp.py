@@ -17,7 +17,7 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, sen
 
 from . import audit
 from .assistant import Assistant, list_models, ollama_chat
-from .icd10 import ICD10Index, looks_like_code
+from .icd10 import ICD10Index, looks_like_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
@@ -133,12 +133,12 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     @app.get("/codes")
     def codes_page():
         q = request.args.get("q", "").strip()
-        ctx = {"q": q, "results": [], "total": 0, "ignored": [], "lookup": None, "loaded": icd is not None}
+        ctx = {"q": q, "results": [], "total": 0, "ignored": [], "lookup": None, "unmatched": [], "loaded": icd is not None}
         if icd and q:
             if looks_like_code(q):
                 ctx["lookup"] = icd.describe(q)
             results, ignored, total = icd.search_detail(q, limit=25)
-            ctx.update(results=results, ignored=ignored, total=total)
+            ctx.update(results=results, ignored=ignored, total=total, unmatched=real_words(ignored))
         return render_template("codes.html", active="codes", page_title="Codes", source=icd.source if icd else "",
                                **ctx)
 

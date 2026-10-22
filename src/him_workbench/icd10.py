@@ -67,6 +67,7 @@ GROUPS = [
     ["bleeding", "hemorrhage"],
     ["stroke", "cerebrovascular"],
     ["baby", "newborn", "neonatal", "infant"],
+    ["pernicious", "intrinsic"],  # pernicious anemia is indexed to B12 deficiency due to intrinsic factor
 ]
 _SYN = {w: g for g in GROUPS for w in g}
 
@@ -86,6 +87,12 @@ FILLER = {"complication", "complications", "problem", "problems", "issue", "issu
           # question wrapper words: "what is the diagnosis code for cystitis"
           "diagnosis", "diagnoses", "code", "codes", "icd", "icd10", "for", "the", "a", "an", "of",
           "what", "whats", "is", "find", "show", "me", "give", "search", "lookup", "to", "i", "need"}
+
+
+def real_words(ignored: list[str]) -> list[str]:
+    """Ignored words that are not plain filler. These may be real medical terms the code
+    descriptions simply do not use (index terms, eponyms), so results may not fit them."""
+    return [w for w in ignored if w not in FILLER]
 
 
 def _expand_query(query: str) -> list[list[str]]:

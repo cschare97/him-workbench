@@ -181,6 +181,18 @@ def test_search_detail_reports_total_beyond_the_limit(tmp_path):
     assert len(results) == 2 and total == 4 and ignored == []
 
 
+def test_pernicious_finds_b12_intrinsic_factor_code(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("D510    Test B12 deficiency anemia due to intrinsic factor deficiency\nD511    Test B12 deficiency anemia other\nO368    Test fetal anemia\n")
+    idx = ICD10Index.from_file(p)
+    assert [e.code for e in idx.search("pernicious anemia")] == ["D510"]
+
+
+def test_real_words_separates_filler_from_unknown_terms():
+    from him_workbench.icd10 import real_words
+    assert real_words(["diagnosis", "code", "for", "pernicious"]) == ["pernicious"]
+
+
 def test_question_wrapper_words_are_dropped_and_reported(tmp_path):
     p = tmp_path / "icd10cm_codes_2099.txt"
     p.write_text("N300    Test acute cystitis\nN301    Test interstitial cystitis\nZ001    Test code for diagnosis follow up\n")

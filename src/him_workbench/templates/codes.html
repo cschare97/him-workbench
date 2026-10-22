@@ -20,6 +20,7 @@
   {% endif %}
 </div>
 {% endif %}
+{% if unmatched %}<p class="note warn"><strong>Not found in any code description: {{ unmatched|join(', ') }}.</strong> The results below do not account for it and may not fit. It may be a term the code set files under a different name, so try the cause or a related word.</p>{% endif %}
 {% if ignored %}<p class="note info">No code matched every word, so this search ignored: {{ ignored|join(', ') }}.</p>{% endif %}
 {% if q and not results and not lookup %}
 <p class="empty">No codes match “{{ q }}”. Try fewer or different words.</p>

@@ -17,7 +17,7 @@ import urllib.request
 from typing import Callable
 
 from . import audit
-from .icd10 import ICD10Index, format_code, normalize_code
+from .icd10 import ICD10Index, format_code, normalize_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
 
@@ -100,6 +100,9 @@ class Assistant:
                     out["ignored_words"] = ignored
                     notes.append("No code matched every word, so these words were ignored: "
                                  + ", ".join(ignored) + ".")
+                if real_words(ignored):
+                    notes.append("WARNING: " + ", ".join(real_words(ignored)) + " appear(s) in no code description, "
+                                 "so the results do not account for it. Tell the user the results may not fit that word.")
                 if total > len(hits):
                     notes.append(f"Only {len(hits)} of {total} matching codes are shown. Tell the user the list is "
                                  "partial and suggest narrowing the search (add a body part, type, or cause).")
