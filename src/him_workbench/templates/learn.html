@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="meta"><a href="/patients/{{ p.id }}/chart">&larr; {{ p.first }} {{ p.last }}'s chart</a></p>
+<div class="page-head"><h1>{{ name or code or 'Patient education' }}</h1>
+{% if result %}<span class="meta">{{ result.system }} {{ result.code }}</span>{% endif %}</div>
+{% if problem %}
+<p class="empty">{{ problem }}</p>
+{% elif not result.results %}
+<p class="empty">{{ result.note }}</p>
+{% else %}
+{% if result.matched_by == 'name' %}<p class="note">{{ result.note }}</p>{% endif %}
+{% for x in result.results %}
+<div class="panel">
+  <h3><a href="{{ x.url }}" rel="noopener noreferrer">{{ x.title }}</a></h3>
+  <p>{{ x.summary }}</p>
+  {% if x.credit %}<p class="dim">{{ x.credit }}</p>{% endif %}
+</div>
+{% endfor %}
+{% endif %}
+{% if result %}
+<p class="dim">This lookup sent {{ result.system }} code {{ result.code }}{% if result.matched_by == 'name' %} and the name “{{ result.term }}”{% endif %} to NLM. No patient information was sent.</p>
+{% endif %}
+<p class="note info">{{ edu_attribution }}</p>
+{% endblock %}

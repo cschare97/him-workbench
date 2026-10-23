@@ -162,3 +162,45 @@ def test_chart_page_refuses_a_file_holding_a_different_patient(tmp_path):
 
 def test_chart_page_rejects_a_bad_host(tmp_path):
     assert make(tmp_path).test_client().get("/patients/1/chart", headers={"Host": "evil.example"}).status_code == 403
+
+
+def _edu_client(tmp_path, calls):
+    from him_workbench.medlineplus import MedlinePlusClient
+    feed = {"feed": {"entry": [{"title": {"_value": "Sinusitis"}, "link": [{"href": "https://medlineplus.gov/sinusitis.html"}],
+                                "summary": {"_value": "<p>Sinus swelling.</p>"}}]}}
+    def fetch(url):
+        calls.append(url)
+        return feed
+    return MedlinePlusClient(fetch=fetch, cache_path=tmp_path / "m.json")
+
+
+def test_learn_page_shows_medlineplus_result_with_attribution_and_what_was_sent(tmp_path):
+    calls = []
+    app = make(tmp_path, education=_edu_client(tmp_path, calls))
+    page = app.test_client().get("/patients/3/learn?kind=problem&code=444814009&name=Viral+sinusitis", headers=HDR)
+    assert page.status_code == 200 and b"Sinusitis" in page.data and b"MedlinePlus.gov" in page.data
+    assert b"No patient information was sent" in page.data and len(calls) == 1
+
+
+def test_learn_page_is_off_without_education_and_makes_no_request(tmp_path):
+    page = make(tmp_path).test_client().get("/patients/3/learn?kind=problem&code=444814009", headers=HDR)
+    assert b"--education" in page.data
+
+
+def test_learn_page_rejects_bad_input_and_unknown_patients_without_calling_nlm(tmp_path):
+    calls = []
+    c = make(tmp_path, education=_edu_client(tmp_path, calls)).test_client()
+    assert c.get("/patients/nope/learn?kind=problem&code=444814009", headers=HDR).status_code == 404
+    assert b"not a problem or drug code" in c.get("/patients/3/learn?kind=problem&code=abc;drop", headers=HDR).data
+    assert b"not a problem or drug code" in c.get("/patients/3/learn?kind=lab&code=12345", headers=HDR).data
+    assert calls == []
+
+
+def test_chart_shows_about_links_only_when_education_is_on(tmp_path):
+    import json
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3")))
+    on = make(tmp_path, chart_files={"3": f}, education=_edu_client(tmp_path, [])).test_client()
+    off = make(tmp_path, chart_files={"3": f}).test_client()
+    assert b"/patients/3/learn?" in on.get("/patients/3/chart", headers=HDR).data
+    assert b"/learn?" not in off.get("/patients/3/chart", headers=HDR).data

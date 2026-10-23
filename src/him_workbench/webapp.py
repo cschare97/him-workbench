@@ -22,7 +22,9 @@ from .icd10 import ICD10Index, find_code_in_text, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
-from .medlineplus import ATTRIBUTION as EDU_ATTRIBUTION
+import re
+
+from .medlineplus import ATTRIBUTION as EDU_ATTRIBUTION, MedlinePlusError
 from .rxnorm import ATTRIBUTION
 
 TEXTURE_NAMES = ("patients", "duplicates", "quality", "codes", "header")
@@ -133,6 +135,27 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
         return render_template("chart.html", active="patients", page_title=f"{p.first} {p.last}", p=p,
                                chart=chart, problem=problem, act=active(chart.problems) if chart else [],
                                past=[x for x in chart.problems if x.status != "active"] if chart else [])
+
+    @app.get("/patients/<pid>/learn")
+    def learn_page(pid):
+        p = by_id.get(pid)
+        if p is None:
+            abort(404)
+        kind = request.args.get("kind", "")
+        code = request.args.get("code", "").strip()
+        name = request.args.get("name", "").strip()[:120]
+        result, problem = None, ""
+        if education is None:
+            problem = "Patient education is off. Start the page with --education to turn it on."
+        elif kind not in ("problem", "drug") or not re.fullmatch(r"\d{3,18}", code):
+            problem = "That link is not a problem or drug code this page can look up."
+        else:
+            try:
+                result = education.for_chart_item(kind, code, name)
+            except MedlinePlusError as exc:
+                problem = str(exc)
+        return render_template("learn.html", active="patients", page_title="Patient education", p=p,
+                               result=result, problem=problem, kind=kind, code=code, name=name)
 
     @app.get("/duplicates")
     def duplicates_page():

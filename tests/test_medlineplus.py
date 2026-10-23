@@ -154,3 +154,58 @@ def test_education_result_carries_the_code_meaning_and_a_parts_note(tmp_path):
     msg = json.loads([m for m in bot.messages if m["role"] == "tool"][0]["content"])
     assert msg["code_description"] == "Test pneumonia due to test virus"
     assert "cover its parts" in msg["note"] or "describe the parts" in msg["note"]
+
+
+def test_chart_problem_uses_snomed_code_first(tmp_path):
+    calls = []
+    r = client(tmp_path, FEED, calls).for_chart_item("problem", "444814009", "Viral sinusitis")
+    assert r["matched_by"] == "code" and r["results"][0]["title"] == "Alpha" and len(calls) == 1
+    assert "113883.6.96" in calls[0] and "444814009" in calls[0]
+
+
+def test_chart_drug_uses_rxnorm_code_and_never_falls_back_to_a_name_search(tmp_path):
+    calls = []
+    empty = {"feed": {"entry": []}}
+    r = client(tmp_path, empty, calls).for_chart_item("drug", "313782", "Acetaminophen 325 MG Oral Tablet")
+    assert "113883.6.88" in calls[0] and r["results"] == [] and "no patient-education page" in r["note"] and len(calls) == 1
+
+
+def test_chart_problem_with_no_code_page_falls_back_to_name_and_says_so(tmp_path):
+    c = MedlinePlusClient(fetch=lambda u: {"feed": {"entry": []}}, fetch_text=lambda u: XML, cache_path=tmp_path / "m.json")
+    r = c.for_chart_item("problem", "109570002", "Primary dental caries")
+    assert r["matched_by"] == "name" and r["term"] == "Primary dental caries"
+    assert r["results"][0]["url"] == "https://medlineplus.gov/alpha.html"
+    assert "search by name" in r["note"] and "109570002" in r["note"]
+
+
+def test_chart_problem_with_nothing_anywhere_says_no_page(tmp_path):
+    empty = "<nlmSearchResult><count>0</count><list/></nlmSearchResult>"
+    c = MedlinePlusClient(fetch=lambda u: {"feed": {"entry": []}}, fetch_text=lambda u: empty, cache_path=tmp_path / "m.json")
+    r = c.for_chart_item("problem", "109570002", "Primary dental caries")
+    assert r["results"] == [] and r["matched_by"] == "" and "no patient-education page" in r["note"]
+
+
+def test_chart_lookup_rejects_bad_kind_or_code(tmp_path):
+    c = client(tmp_path, FEED)
+    assert "error" in c.for_chart_item("problem", "not-a-code")
+    assert "error" in c.for_chart_item("lab", "12345")
+
+
+def test_list_items_are_separated_not_run_together():
+    html = "<p>Other causes can include:</p><ul><li>Allergies</li><li>Strep throat</li><li>Tonsillitis</li></ul><p>Treatment depends on the cause.</p>"
+    feed = {"feed": {"entry": [{"title": "T", "link": {"href": "https://x"}, "summary": html}]}}
+    assert parse(feed)[0]["summary"] == "Other causes can include: Allergies, Strep throat, Tonsillitis. Treatment depends on the cause."
+
+
+def test_list_item_that_ends_in_a_period_gets_no_comma():
+    html = "<ul><li>Rest.</li><li>Fluids.</li></ul>"
+    feed = {"feed": {"entry": [{"title": "T", "link": {"href": "https://x"}, "summary": html}]}}
+    assert parse(feed)[0]["summary"] == "Rest. Fluids."
+
+
+def test_list_end_gets_a_period_even_with_line_breaks_between_tags():
+    html = ("<p>Types of arm injury include:</p>\n<ul>\n  <li>Sprains</li>\n  <li>Fractures</li>\n"
+            "  <li>Osteoarthritis</li>\n</ul>\n<p>You may also have problems with your hand.</p>")
+    feed = {"feed": {"entry": [{"title": "T", "link": {"href": "https://x"}, "summary": html}]}}
+    assert parse(feed)[0]["summary"] == ("Types of arm injury include: Sprains, Fractures, Osteoarthritis. "
+                                         "You may also have problems with your hand.")

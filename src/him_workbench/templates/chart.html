@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% macro learn(kind, c) %}{% if education_on and c.code %}<a href="/patients/{{ p.id }}/learn?{{ {'kind': kind, 'code': c.code, 'name': c.display|clean}|urlencode }}">About</a>{% endif %}{% endmacro %}
 {% macro code(c) %}{% if c.code %}<span class="mono dim">{{ c.code }}</span>{% endif %}{% endmacro %}
 {% block content %}
 <p class="meta"><a href="/patients">&larr; Patients</a></p>
@@ -10,22 +11,22 @@
 
 <h3>Problem list</h3>
 {% if act %}
-<table><thead><tr><th>Problem</th><th>Code</th><th>Since</th></tr></thead><tbody>
-{% for x in act %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td></tr>{% endfor %}
+<table><thead><tr><th>Problem</th><th>Code</th><th>Since</th><th></th></tr></thead><tbody>
+{% for x in act %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td><td>{{ learn('problem', x.what) }}</td></tr>{% endfor %}
 </tbody></table>
 {% else %}<p class="dim">No active problems.</p>{% endif %}
 
 {% if past %}
 <h3>Past problems <span class="dim">({{ past|length }} resolved or inactive)</span></h3>
-<table><thead><tr><th>Problem</th><th>Code</th><th>From</th><th>To</th></tr></thead><tbody>
-{% for x in past %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td><td class="mono">{{ x.resolved }}</td></tr>{% endfor %}
+<table><thead><tr><th>Problem</th><th>Code</th><th>From</th><th>To</th><th></th></tr></thead><tbody>
+{% for x in past %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td><td class="mono">{{ x.resolved }}</td><td>{{ learn('problem', x.what) }}</td></tr>{% endfor %}
 </tbody></table>
 {% endif %}
 
 <h3>Medications <span class="dim">({{ chart.medications|length }})</span></h3>
 {% if chart.medications %}
-<table><thead><tr><th>Medication</th><th>RxNorm</th><th>Status</th><th>Date</th></tr></thead><tbody>
-{% for m in chart.medications %}<tr><td>{{ m.what.display }}</td><td>{{ code(m.what) }}</td><td>{{ m.status }}</td><td class="mono">{{ m.date }}</td></tr>{% endfor %}
+<table><thead><tr><th>Medication</th><th>RxNorm</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody>
+{% for m in chart.medications %}<tr><td>{{ m.what.display }}</td><td>{{ code(m.what) }}</td><td>{{ m.status }}</td><td class="mono">{{ m.date }}</td><td>{{ learn('drug', m.what) }}</td></tr>{% endfor %}
 </tbody></table>
 {% else %}<p class="dim">None on file.</p>{% endif %}
 

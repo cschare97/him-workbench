@@ -28,6 +28,8 @@ from .icd10 import format_code, looks_like_code, normalize_code
 BASE = "https://connect.medlineplus.gov/service"
 TOPICS_BASE = "https://wsearch.nlm.nih.gov/ws/query"
 ICD10CM_OID = "2.16.840.1.113883.6.90"
+SNOMED_OID = "2.16.840.1.113883.6.96"
+RXNORM_OID = "2.16.840.1.113883.6.88"
 SOURCE = "MedlinePlus Connect (NLM)"
 ATTRIBUTION = ("Health information from MedlinePlus.gov, a service of the U.S. National Library of Medicine. "
                "NLM is not responsible for this product and does not endorse or recommend it.")
@@ -85,7 +87,20 @@ class _Summary(HTMLParser):
         if tag in ("p", "li", "div", "br"):
             (self.parts[self._mode] if self._mode else self.main).append(" ")
 
+    def _end_list_item(self):
+        """Separate list items in the plain text: 'a, b, c.' instead of 'a b c'."""
+        last = next((x.strip() for x in reversed(self.main) if x.strip()), "")
+        self.main.append(" " if last.endswith((".", ";", ":", "!", "?")) else ", ")
+
     def handle_endtag(self, tag):
+        if self._mode is None:
+            if tag == "li":
+                self._end_list_item()
+            elif tag in ("ul", "ol"):
+                # real pages have line breaks between tags, so look past blank text for the last separator
+                i = next((k for k in range(len(self.main) - 1, -1, -1) if self.main[k].strip()), None)
+                if i is not None and self.main[i] == ", ":
+                    self.main[i] = ". "
         if tag in _VOID or self._mode is None:
             return
         self._depth -= 1
@@ -255,6 +270,36 @@ class MedlinePlusClient:
         notes.append("Name search matches words, so check each topic fits what was asked.")
         out["note"] = " ".join(notes)
         audit.log_call("medlineplus_search", {"query_chars": len(term)}, f"{len(pages)} pages")
+        return out
+
+    def _connect(self, oid: str, code: str) -> list[dict]:
+        url = BASE + "?" + urllib.parse.urlencode({
+            "mainSearchCriteria.v.cs": oid, "mainSearchCriteria.v.c": code,
+            "knowledgeResponseType": "application/json", "informationRecipient.languageCode.c": "en"})
+        return parse(self._get(url))
+
+    def for_chart_item(self, kind: str, code: str, name: str = "") -> dict:
+        """Education for one line of a patient chart, by the code the FHIR file uses.
+        kind 'problem': SNOMED CT code, and if MedlinePlus has no page for it, a name search (marked matched_by='name').
+        kind 'drug': RxNorm code only (a drug's long name makes a poor search).
+        Only the code (and the name, when the code finds nothing) is sent to NLM."""
+        code = str(code).strip()
+        if kind not in ("problem", "drug") or not re.fullmatch(r"\d{3,18}", code):
+            return {"error": "need a problem or drug kind and a numeric SNOMED CT or RxNorm code"}
+        oid, label = (SNOMED_OID, "SNOMED CT") if kind == "problem" else (RXNORM_OID, "RxNorm")
+        audit.log_call("medlineplus_chart_lookup", {"kind": kind, "code_chars": len(code)}, "called")
+        pages = self._connect(oid, code)
+        out = {"kind": kind, "code": code, "system": label, "results": pages, "matched_by": "code" if pages else "",
+               "source": SOURCE}
+        if not pages and kind == "problem" and name.strip():
+            by_name = self._by_name(name.strip(), limit=3)
+            out.update(results=by_name["results"], matched_by="name" if by_name["results"] else "", term=name.strip())
+            if by_name["results"]:
+                out["note"] = (f"MedlinePlus has no page for {label} code {code}, so these come from a search by name. "
+                               "Name search matches words, so check each page fits.")
+        if not out["results"]:
+            out["note"] = f"MedlinePlus has no patient-education page for {label} code {code}."
+        audit.log_call("medlineplus_chart_lookup", {"kind": kind}, f"{len(out['results'])} pages")
         return out
 
     def _by_code(self, code: str) -> dict:
