@@ -15,7 +15,7 @@
   <thead><tr><th>Name</th><th>Birth date</th><th>Sex</th><th>Zip</th><th>Id</th></tr></thead>
   <tbody>
   {% for p in rows %}
-    <tr><td>{{ p.first }} {{ p.last }}</td><td class="mono">{{ p.dob }}</td><td>{{ p.sex or '(blank)' }}</td><td class="mono">{{ p.zip or '(blank)' }}</td><td class="ids">{{ p.id[:13] }}</td></tr>
+    <tr><td>{% if p.id in charts %}<a href="/patients/{{ p.id }}/chart">{{ p.first }} {{ p.last }}</a>{% else %}{{ p.first }} {{ p.last }}{% endif %}</td><td class="mono">{{ p.dob }}</td><td>{{ p.sex or '(blank)' }}</td><td class="mono">{{ p.zip or '(blank)' }}</td><td class="ids">{{ p.id[:13] }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

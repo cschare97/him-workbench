@@ -17,6 +17,7 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, sen
 
 from . import audit
 from .assistant import Assistant, list_models, ollama_chat
+from .chart import clean, load_chart, active
 from .icd10 import ICD10Index, find_code_in_text, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
@@ -41,8 +42,11 @@ def _host_ok(value: str | None) -> bool:
 
 def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
-               models_lister=None, drugs=None, education=None, patient_source: str = "") -> Flask:
+               models_lister=None, drugs=None, education=None, patient_source: str = "",
+               chart_files: dict | None = None) -> Flask:
     app = Flask(__name__)
+    app.jinja_env.filters["clean"] = clean
+    chart_files = chart_files or {}
     patients = patients or []
     by_id = {p.id: p for p in patients}
     chat_factory = chat_factory or ollama_chat
@@ -107,7 +111,28 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
         q = request.args.get("q", "").strip().lower()
         rows = [p for p in patients if not q or q in f"{p.first} {p.last} {p.id} {p.dob} {p.zip}".lower()]
         return render_template("patients.html", active="patients", page_title="Patients",
-                               rows=rows[:300], total=len(patients), matched=len(rows), q=request.args.get("q", ""))
+                               rows=rows[:300], total=len(patients), matched=len(rows), q=request.args.get("q", ""),
+                               charts=chart_files)
+
+    @app.get("/patients/<pid>/chart")
+    def chart_page(pid):
+        p = by_id.get(pid)
+        if p is None:
+            abort(404)
+        chart, problem = None, ""
+        f = chart_files.get(pid)
+        if f is None:
+            problem = "No chart for this patient. Charts come from FHIR files, so start the page with --fhir."
+        else:
+            try:
+                chart = load_chart(f)
+                if chart.patient_id != pid:
+                    chart, problem = None, "The file for this patient holds a different patient's record, so it was not shown."
+            except (OSError, ValueError):
+                problem = "That patient's FHIR file could not be read."
+        return render_template("chart.html", active="patients", page_title=f"{p.first} {p.last}", p=p,
+                               chart=chart, problem=problem, act=active(chart.problems) if chart else [],
+                               past=[x for x in chart.problems if x.status != "active"] if chart else [])
 
     @app.get("/duplicates")
     def duplicates_page():

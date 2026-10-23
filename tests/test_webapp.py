@@ -122,3 +122,43 @@ def test_about_page_carries_medlineplus_attribution_only_when_education_is_on(tm
     assert b"MedlinePlus.gov" not in make(tmp_path).test_client().get("/about", headers=HDR).data
     app = make(tmp_path, education=MedlinePlusClient(fetch=lambda u: {}, cache_path=tmp_path / "m.json"))
     assert b"MedlinePlus.gov" in app.test_client().get("/about", headers=HDR).data
+
+
+def _bundle(pid, name="Asthma (disorder)"):
+    return {"resourceType": "Bundle", "entry": [
+        {"resource": {"resourceType": "Patient", "id": pid}},
+        {"resource": {"resourceType": "Condition", "clinicalStatus": {"coding": [{"code": "active"}]},
+                      "code": {"coding": [{"code": "195967001", "display": name}]}, "onsetDateTime": "2020-01-05T00:00:00Z"}}]}
+
+
+def test_chart_page_shows_the_patient_chart_and_patients_link_to_it(tmp_path):
+    import json
+    from him_workbench.chart import chart_files_from
+    d = tmp_path / "fhir"
+    d.mkdir()
+    (d / "Maria_Okafor_3.json").write_text(json.dumps(_bundle("3")))
+    app = make(tmp_path, chart_files=chart_files_from(d))
+    c = app.test_client()
+    page = c.get("/patients/3/chart", headers=HDR)
+    assert page.status_code == 200 and b"Asthma" in page.data and b"(disorder)" not in page.data
+    assert b'href="/patients/3/chart"' in c.get("/patients", headers=HDR).data
+    assert b'href="/patients/1/chart"' not in c.get("/patients", headers=HDR).data
+
+
+def test_chart_page_unknown_patient_is_404_and_no_file_is_explained(tmp_path):
+    c = make(tmp_path).test_client()
+    assert c.get("/patients/nope/chart", headers=HDR).status_code == 404
+    assert b"start the page with --fhir" in c.get("/patients/1/chart", headers=HDR).data
+
+
+def test_chart_page_refuses_a_file_holding_a_different_patient(tmp_path):
+    import json
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("999")))
+    c = make(tmp_path, chart_files={"3": f}).test_client()
+    page = c.get("/patients/3/chart", headers=HDR)
+    assert b"different patient" in page.data and b"Asthma" not in page.data
+
+
+def test_chart_page_rejects_a_bad_host(tmp_path):
+    assert make(tmp_path).test_client().get("/patients/1/chart", headers={"Host": "evil.example"}).status_code == 403

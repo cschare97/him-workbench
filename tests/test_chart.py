@@ -1,0 +1,118 @@
+import json
+
+from him_workbench.chart import chart_from_resources, load_chart, semantic_tag, text_chart
+
+
+def cond(display, status="active", onset="2020-01-05T10:00:00-05:00", code="1"):
+    return {"resourceType": "Condition", "clinicalStatus": {"coding": [{"code": status}]},
+            "code": {"coding": [{"system": "http://snomed.info/sct", "code": code, "display": display}]},
+            "onsetDateTime": onset}
+
+
+def obs(display, value, cat="vital-signs", date="2024-01-01T08:00:00Z", code="x"):
+    return {"resourceType": "Observation", "category": [{"coding": [{"code": cat}]}],
+            "code": {"coding": [{"code": code, "display": display}]},
+            "valueQuantity": {"value": value, "unit": "mmHg"}, "effectiveDateTime": date}
+
+
+def test_semantic_tag():
+    assert semantic_tag("Hypertension (disorder)") == "disorder"
+    assert semantic_tag("Medication review due (situation)") == "situation"
+    assert semantic_tag("No tag here") == ""
+
+
+def test_disorders_are_problems_and_situations_are_not():
+    c = chart_from_resources([cond("Essential hypertension (disorder)"), cond("Medication review due (situation)"),
+                              cond("Full-time employment (finding)")])
+    assert [p.what.display for p in c.problems] == ["Essential hypertension (disorder)"]
+    assert len(c.findings) == 2
+
+
+def test_condition_keeps_code_status_and_dates():
+    c = chart_from_resources([cond("Asthma (disorder)", status="resolved", code="195967001")])
+    p = c.problems[0]
+    assert (p.what.code, p.status, p.onset) == ("195967001", "resolved", "2020-01-05")
+
+
+def test_medication_uses_rxnorm_concept_and_status():
+    c = chart_from_resources([{"resourceType": "MedicationRequest", "status": "active", "authoredOn": "2023-05-01T00:00:00Z",
+                               "medicationCodeableConcept": {"coding": [{"code": "314076", "display": "lisinopril 10 MG Oral Tablet"}]}}])
+    m = c.medications[0]
+    assert (m.what.display, m.status, m.date) == ("lisinopril 10 MG Oral Tablet", "active", "2023-05-01")
+
+
+def test_vitals_keep_only_the_latest_value_per_test():
+    c = chart_from_resources([obs("Systolic BP", 120, date="2023-01-01T00:00:00Z", code="8480-6"),
+                              obs("Systolic BP", 135, date="2024-06-01T00:00:00Z", code="8480-6"),
+                              obs("Systolic BP", 110, date="2022-01-01T00:00:00Z", code="8480-6")])
+    assert [(r.value, r.date) for r in c.vitals] == [("135 mmHg", "2024-06-01")]
+
+
+def test_labs_and_vitals_are_separate_and_other_observations_are_counted():
+    c = chart_from_resources([obs("Glucose", 90, cat="laboratory", code="2339-0"), obs("Heart rate", 70, code="8867-4"),
+                              obs("Tobacco", 1, cat="social-history", code="72166-2")])
+    assert [r.what.display for r in c.labs] == ["Glucose"] and [r.what.display for r in c.vitals] == ["Heart rate"]
+    assert c.skipped["Observation"] == 1
+
+
+def test_visits_sorted_latest_first():
+    enc = lambda d: {"resourceType": "Encounter", "class": {"code": "AMB"}, "type": [{"coding": [{"display": "Check-up"}]}],
+                     "period": {"start": d + "T09:00:00Z"}}
+    c = chart_from_resources([enc("2020-01-01"), enc("2024-03-03"), enc("2022-02-02")])
+    assert [v.start for v in c.visits] == ["2024-03-03", "2022-02-02", "2020-01-01"]
+
+
+def test_unused_resource_types_are_counted_not_dropped():
+    c = chart_from_resources([{"resourceType": "Claim"}, {"resourceType": "Claim"}, {"resourceType": "Provenance"}])
+    assert c.skipped == {"Claim": 2, "Provenance": 1}
+
+
+def test_immunization_and_allergy():
+    c = chart_from_resources([
+        {"resourceType": "Immunization", "vaccineCode": {"coding": [{"code": "140", "display": "Influenza"}]},
+         "occurrenceDateTime": "2023-10-01T00:00:00Z"},
+        {"resourceType": "AllergyIntolerance", "clinicalStatus": {"coding": [{"code": "active"}]},
+         "code": {"coding": [{"display": "Penicillin"}]}}])
+    assert c.immunizations[0].date == "2023-10-01" and c.allergies[0].what.display == "Penicillin"
+
+
+def test_bad_or_empty_input_does_not_crash():
+    c = chart_from_resources([None, "x", {}, {"resourceType": "Condition"}, {"resourceType": "Observation"}])
+    assert c.patient_id == "" and len(c.problems) == 0
+
+
+def test_load_chart_reads_a_bundle_and_patient_id(tmp_path):
+    f = tmp_path / "b.json"
+    f.write_text(json.dumps({"resourceType": "Bundle", "entry": [
+        {"resource": {"resourceType": "Patient", "id": "p9"}}, {"resource": cond("Asthma (disorder)")}]}))
+    c = load_chart(f)
+    assert c.patient_id == "p9" and len(c.problems) == 1
+
+
+def test_text_chart_keeps_situations_out_of_the_problem_list():
+    c = chart_from_resources([cond("Asthma (disorder)"), cond("Medication review due (situation)")])
+    t = text_chart(c, "Test Patient")
+    problem_section = t.split("Medications:")[0]
+    assert "Asthma" in problem_section and "1 active of 1 diagnoses" in t
+    assert "Medication review due" not in problem_section and "Medication review due" in t.split("Other findings")[1]
+
+
+def test_medication_name_follows_a_reference_to_a_medication_resource():
+    med = {"resourceType": "Medication", "id": "m1", "code": {"coding": [{"code": "198405", "display": "Ibuprofen 100 MG Oral Tablet"}]}}
+    req = {"resourceType": "MedicationRequest", "status": "completed", "medicationReference": {"reference": "urn:uuid:m1"}}
+    c = chart_from_resources([req, med])
+    assert c.medications[0].what.display == "Ibuprofen 100 MG Oral Tablet" and c.medications[0].what.code == "198405"
+
+
+def test_unresolved_medication_is_labelled_not_blank():
+    req = {"resourceType": "MedicationRequest", "status": "completed", "medicationReference": {"reference": "urn:uuid:nope"}}
+    assert chart_from_resources([req]).medications[0].what.display == "(name not in record)"
+
+
+def test_text_chart_lists_past_problems_findings_and_strips_tags():
+    c = chart_from_resources([cond("Otitis media (disorder)", status="resolved"), cond("Full-time employment (finding)"),
+                              {"resourceType": "Encounter", "class": {"code": "AMB"}, "type": [{"coding": [{"display": "Well child visit (procedure)"}]}],
+                               "period": {"start": "2024-01-01T00:00:00Z"}}])
+    t = text_chart(c)
+    assert "Past problems" in t and "Otitis media" in t and "Full-time employment" in t
+    assert "Well child visit" in t and "(procedure)" not in t and "(disorder)" not in t
