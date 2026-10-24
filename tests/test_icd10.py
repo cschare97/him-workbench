@@ -256,3 +256,14 @@ def test_filler_words_stay_literal_so_relaxed_search_still_kicks_in(diab_idx):
     # "complications" must not turn into "complication" and stop the search at one code
     res, ignored, total = diab_idx.search_detail("type 2 diabetes kidney complications")
     assert {e.code for e in res} == {"E1121", "E1122", "E1129"} and ignored == ["complications"]
+
+
+def test_did_you_mean_suggests_real_word_for_misspelling(tmp_path):
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("M4310  Spondylolisthesis, site unspecified\nM479  Spondylosis, unspecified\n"
+                 "J029  Acute pharyngitis, unspecified\n")
+    ix = ICD10Index.from_file(p)
+    assert ix.search("spondolythesis") == []                      # no silent substitution
+    assert ix.did_you_mean("spondolythesis")["spondolythesis"][0] == "spondylolisthesis"
+    assert ix.did_you_mean("pharyngitis") == {}                   # real word: nothing to suggest
+    assert ix.did_you_mean("what is the code for pharyngitis") == {}   # filler is not suggested against

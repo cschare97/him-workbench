@@ -9,6 +9,7 @@ Reference lookup only. This is not coding advice and not validated for billing.
 
 from __future__ import annotations
 
+import difflib
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -252,6 +253,21 @@ class ICD10Index:
         audit.log_call("icd10_search", {"query_chars": len(query)},
                        f"{len(results)} of {total} results, {len(ignored)} words ignored")
         return results, ignored, total
+
+    def did_you_mean(self, query: str, per_word: int = 3) -> dict[str, list[str]]:
+        """For each word that appears in no code description (a likely misspelling), the closest real
+        words in the code set, best first. Suggestions only: the caller must ask, never search for one."""
+        if not hasattr(self, "_vocab"):
+            self._vocab = sorted({w for ws in self._words for w in ws if len(w) >= 4 and not w.isdigit()})
+        out: dict[str, list[str]] = {}
+        for t in _expand_query(query):
+            word = t[0]
+            if word in FILLER or len(word) < 4 or word.isdigit() or self._ranked([t]):
+                continue
+            close = difflib.get_close_matches(word, self._vocab, n=per_word, cutoff=0.75)
+            if close:
+                out[word] = close
+        return out
 
     def search_relaxed(self, query: str, limit: int = 10, synonyms: bool = True) -> tuple[list[Entry], list[str]]:
         results, ignored, _ = self.search_detail(query, limit, synonyms)

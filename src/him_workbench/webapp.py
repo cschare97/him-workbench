@@ -185,7 +185,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     @app.get("/codes")
     def codes_page():
         q = request.args.get("q", "").strip()
-        ctx = {"q": q, "results": [], "total": 0, "ignored": [], "lookup": None, "unmatched": [], "loaded": icd is not None}
+        ctx = {"q": q, "results": [], "total": 0, "ignored": [], "lookup": None, "unmatched": [], "maybe": {}, "loaded": icd is not None}
         if icd and q:
             code = find_code_in_text(q)
             found = icd.describe(code) if code else None
@@ -193,7 +193,8 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                 ctx["lookup"] = found          # a code was typed: show that code, not a word search
             else:
                 results, ignored, total = icd.search_detail(q, limit=25)
-                ctx.update(results=results, ignored=ignored, total=total, unmatched=real_words(ignored))
+                ctx.update(results=results, ignored=ignored, total=total, unmatched=real_words(ignored),
+                           maybe=icd.did_you_mean(q))
         return render_template("codes.html", active="codes", page_title="Codes", source=icd.source if icd else "",
                                **ctx)
 

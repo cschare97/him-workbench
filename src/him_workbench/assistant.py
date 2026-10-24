@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import json
 import os
+import difflib
 import re
 import urllib.request
 from typing import Callable
 
 from . import audit
 from .chart import chart_to_dict, load_chart
-from .icd10 import ICD10Index, format_code, normalize_code, real_words
+from .icd10 import FILLER, ICD10Index, _words, format_code, normalize_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
 from .medlineplus import MedlinePlusClient, MedlinePlusError
@@ -27,6 +28,8 @@ from .rxnorm import RxNormClient, RxNormError
 SYSTEM_PROMPT = (
     "You are a reference assistant for Health Information Management work.\n"
     "Rules:\n"
+    "- Search ICD-10-CM with the user's own words, spelled as they typed them. Never correct or replace a word "
+    "yourself; if the search says a word was not found, ask the user what they meant.\n"
     "- Use ONLY the provided tools for ICD-10-CM codes and duplicate-record checks. "
     "Never state a code or a match result from memory.\n"
     "- If a tool returns nothing or an error, say so plainly. Do not guess.\n"
@@ -116,6 +119,7 @@ class Assistant:
         self.chat = chat_fn
         self.charts = charts or {}
         self.current_patient_id: str | None = None
+        self.question = ""
         self.drugs = drugs
         self.education = education
         self.tools = (TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
@@ -130,6 +134,21 @@ class Assistant:
         self.seen_codes: set[str] = set()
 
     # ---- tools ----
+    def _swapped_words(self, query: str) -> dict[str, str]:
+        """Words the user typed that match no code description, which the model replaced with a close word of
+        its own. {typed: replacement}. Empty when the query keeps the user's words."""
+        typed = set(_words(self.question))
+        out: dict[str, str] = {}
+        for w in _words(query):
+            if w in typed or w in FILLER or len(w) < 4:
+                continue
+            for u in _words(self.question):
+                if (u not in FILLER and len(u) >= 4 and not self.icd._ranked([[u]])
+                        and difflib.SequenceMatcher(None, u, w).ratio() >= 0.7):
+                    out[u] = w
+                    break
+        return out
+
     def run_tool(self, name: str, args: dict) -> dict:
         audit.log_call("assistant_tool", {"tool": name}, "called")
         if self.on_tool:
@@ -138,6 +157,14 @@ class Assistant:
             if name == "search_icd10":
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
+                swapped = self._swapped_words(str(args.get("query", "")))
+                if swapped:
+                    return {"results": [], "total_matches": 0, "source_file": self.icd.source,
+                            "did_you_mean": {u: [w] for u, w in swapped.items()},
+                            "note": "NOT SEARCHED. The user typed " + ", ".join(f"'{u}'" for u in swapped) +
+                                    ", which is in no code description, and you searched a different word instead. "
+                                    "Do not do that. Tell the user the word was not found and ask if they meant "
+                                    + " or ".join(f"'{w}'" for w in swapped.values()) + "."}
                 hits, ignored, total = self.icd.search_detail(str(args.get("query", "")), limit=10)
                 out = {"results": [{"code": e.display, "description": e.description} for e in hits],
                        "total_matches": total, "source_file": self.icd.source}
@@ -149,6 +176,13 @@ class Assistant:
                 if real_words(ignored):
                     notes.append("WARNING: " + ", ".join(real_words(ignored)) + " appear(s) in no code description, "
                                  "so the results do not account for it. Tell the user the results may not fit that word.")
+                maybe = self.icd.did_you_mean(str(args.get("query", "")))
+                if maybe:
+                    out["did_you_mean"] = maybe
+                    notes.append("These words are in no code description: "
+                                 + "; ".join(f"{w} (maybe {', '.join(c)})" for w, c in maybe.items())
+                                 + ". Do not swap in a suggested word yourself. Tell the user the word was not found "
+                                 "and ask if they meant one of the suggestions.")
                 if total > len(hits):
                     notes.append(f"Only {len(hits)} of {total} matching codes are shown. Tell the user the list is "
                                  "partial and suggest narrowing the search (add a body part, type, or cause).")
@@ -239,6 +273,7 @@ class Assistant:
         """patient_id: the patient whose chart the user is looking at, if any. A context line naming them is added
         to the question so the model knows who 'this patient' is."""
         self.current_patient_id = None
+        self.question = question
         if patient_id and patient_id in self._by_id:
             p = self._by_id[patient_id]
             self.current_patient_id = patient_id

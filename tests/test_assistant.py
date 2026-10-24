@@ -246,3 +246,30 @@ def test_ollama_context_window_is_set_and_can_be_overridden(monkeypatch):
     assert _num_ctx() == 32768
     monkeypatch.setenv("HIM_NUM_CTX", "junk")
     assert _num_ctx() == 16384
+
+
+def test_search_tool_offers_did_you_mean_and_forbids_swapping(tmp_path):
+    from him_workbench.assistant import Assistant
+    from him_workbench.icd10 import ICD10Index
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("M4310  Spondylolisthesis, site unspecified\nM479  Spondylosis, unspecified\n")
+    bot = Assistant(scripted(say("x")), icd=ICD10Index.from_file(p))
+    out = bot.run_tool("search_icd10", {"query": "spondolythesis"})
+    assert out["results"] == [] and out["did_you_mean"]["spondolythesis"][0] == "spondylolisthesis"
+    assert "ask if they meant" in out["note"]
+
+
+def test_model_swapping_a_misspelled_word_is_blocked(tmp_path):
+    from him_workbench.assistant import Assistant
+    from him_workbench.icd10 import ICD10Index
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("M4310  Spondylolisthesis, site unspecified\nM479  Spondylosis, unspecified\n")
+    bot = Assistant(scripted(call("search_icd10", query="spondylosis"), say("Did you mean spondylolisthesis?")),
+                    icd=ICD10Index.from_file(p))
+    bot.ask("explain and list the code for spondolythesis")
+    tool_msg = [m for m in bot.messages if m["role"] == "tool"][0]["content"]
+    assert "NOT SEARCHED" in tool_msg and "M479" not in tool_msg
+    # the same word typed correctly is searched normally
+    bot2 = Assistant(scripted(call("search_icd10", query="spondylosis"), say("ok")), icd=ICD10Index.from_file(p))
+    bot2.ask("code for spondylosis")
+    assert "M47.9" in [m for m in bot2.messages if m["role"] == "tool"][0]["content"]
