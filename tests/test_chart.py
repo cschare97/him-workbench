@@ -52,7 +52,7 @@ def test_labs_and_vitals_are_separate_and_other_observations_are_counted():
     c = chart_from_resources([obs("Glucose", 90, cat="laboratory", code="2339-0"), obs("Heart rate", 70, code="8867-4"),
                               obs("Tobacco", 1, cat="social-history", code="72166-2")])
     assert [r.what.display for r in c.labs] == ["Glucose"] and [r.what.display for r in c.vitals] == ["Heart rate"]
-    assert c.skipped["Observation (social-history)"] == 1
+    assert [r.what.display for r in c.social] == ["Tobacco"] and not c.skipped
 
 
 def test_visits_sorted_latest_first():
@@ -156,14 +156,59 @@ def test_earlier_values_are_kept_newest_first_and_capped():
 
 
 def test_skipped_observations_are_named_by_category():
-    c = chart_from_resources([obs("PHQ-9", 3, cat="survey"), obs("Tobacco", 1, cat="social-history"), obs("Mystery", 1, cat="")])
-    assert c.skipped == {"Observation (survey)": 1, "Observation (social-history)": 1, "Observation": 1}
+    c = chart_from_resources([obs("Scan", 3, cat="imaging"), obs("Walk", 1, cat="activity"), obs("Mystery", 1, cat="")])
+    assert c.skipped == {"Observation (imaging)": 1, "Observation (activity)": 1, "Observation": 1}
 
 
 def test_chart_to_dict_carries_earlier_values_and_the_not_read_warning():
     from him_workbench.chart import chart_to_dict
     d = chart_to_dict(chart_from_resources([bp_panel(118, 76, "2024-01-01T00:00:00Z"), bp_panel(124, 80, "2026-02-03T00:00:00Z"),
-                                            obs("PHQ-9", 3, cat="survey")]))
+                                            obs("Scan", 3, cat="imaging")]))
     sys_ = next(v for v in d["vitals_most_recent"] if v["name"] == "Systolic Blood Pressure")
     assert sys_["value"] == "124 mm[Hg]" and sys_["earlier"] == [{"date": "2024-01-01", "value": "118 mm[Hg]"}]
     assert "not read" in d["note"] and "Never call a change better" in d["note"]
+
+
+def test_social_history_and_questionnaires_are_read_with_their_own_values():
+    tobacco = {"resourceType": "Observation", "category": [{"coding": [{"code": "social-history"}]}],
+               "code": {"coding": [{"code": "72166-2", "display": "Tobacco smoking status"}]},
+               "valueCodeableConcept": {"coding": [{"display": "Never smoker"}]}, "effectiveDateTime": "2026-02-03T00:00:00Z"}
+    prapare = {"resourceType": "Observation", "category": [{"coding": [{"code": "survey"}]}], "effectiveDateTime": "2024-01-30T00:00:00Z",
+               "code": {"coding": [{"code": "93025-5", "display": "PRAPARE"}]},
+               "component": [{"code": {"coding": [{"code": "56051-6", "display": "Housing status"}]},
+                              "valueCodeableConcept": {"coding": [{"display": "I have housing"}]}},
+                             {"code": {"coding": [{"code": "x", "display": "Worried about losing housing"}]}, "valueBoolean": False}]}
+    phq = obs("PHQ-9 total score", 3, cat="survey", code="44261-6")
+    c = chart_from_resources([tobacco, prapare, phq])
+    assert [(r.what.display, r.value) for r in c.social] == [("Tobacco smoking status", "Never smoker")]
+    assert {(r.what.display, r.value) for r in c.screenings} == {
+        ("Housing status", "I have housing"), ("Worried about losing housing", "no"), ("PHQ-9 total score", "3 mmHg")}
+    assert not c.skipped
+
+
+def test_questionnaire_earlier_values_are_capped_small():
+    from him_workbench.chart import SCREEN_EARLIER_KEPT
+    res = [obs("PHQ-2 total score", i, cat="survey", date=f"20{10 + i:02d}-01-01T00:00:00Z", code="55758-7") for i in range(8)]
+    assert len(chart_from_resources(res).screenings[0].earlier) == SCREEN_EARLIER_KEPT
+
+
+def test_chart_to_dict_has_social_and_questionnaire_sections_and_the_score_rule():
+    from him_workbench.chart import chart_to_dict
+    d = chart_to_dict(chart_from_resources([obs("PHQ-9 total score", 3, cat="survey", code="44261-6"),
+                                            obs("Tobacco", 1, cat="social-history", code="72166-2")]))
+    assert d["screening_questionnaires"][0]["name"] == "PHQ-9 total score" and d["social_history_observations"][0]["name"] == "Tobacco"
+    assert "never say what a score means" in d["note"]
+
+
+def test_value_concept_tag_is_stripped_and_year_unit_spelled_out():
+    obs = lambda extra: {"resourceType": "Observation", "id": "o", "status": "final",
+                         "category": [{"coding": [{"code": "survey"}]}],
+                         "effectiveDateTime": "2026-02-03", **extra}
+    smoke = obs({"code": {"coding": [{"code": "72166-2", "display": "Tobacco smoking status"}]},
+                 "valueCodeableConcept": {"coding": [{"code": "266919005", "display": "Never smoked tobacco (finding)"}]}})
+    income = obs({"code": {"coding": [{"code": "x", "display": "Income"}]},
+                  "valueQuantity": {"value": 50768, "unit": "/a"}})
+    c = chart_from_resources([smoke, income])
+    vals = {r.what.display: r.value for r in c.screenings}
+    assert vals["Tobacco smoking status"] == "Never smoked tobacco"
+    assert vals["Income"] == "50768 per year"

@@ -236,3 +236,13 @@ def test_a1c_written_in_capitals_is_not_flagged_as_an_unverified_code(tmp_path):
 def test_a_made_up_code_is_still_flagged_after_a_chart_lookup(tmp_path):
     bot = _chart_bot(tmp_path, call("patient_chart"), say("The code is Z99.89."))
     assert "Z99.89" in bot.ask("what code?", patient_id="p1").split("[!]")[1]
+
+
+def test_ollama_context_window_is_set_and_can_be_overridden(monkeypatch):
+    from him_workbench.assistant import _num_ctx
+    monkeypatch.delenv("HIM_NUM_CTX", raising=False)
+    assert _num_ctx() == 16384
+    monkeypatch.setenv("HIM_NUM_CTX", "32768")
+    assert _num_ctx() == 32768
+    monkeypatch.setenv("HIM_NUM_CTX", "junk")
+    assert _num_ctx() == 16384

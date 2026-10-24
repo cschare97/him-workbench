@@ -49,7 +49,8 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
         details += [f"past: {x['name']} [{x['code']}] {x['from']} to {x['to']}".rstrip() for x in r["past_problems"]]
         details += [f"medication: {x['name']} {x['status']} {x['date']}" for x in r["medications"]]
         details += [f"{x['name']}: {x['value']} ({x['date']})" + (f"  [+{len(x['earlier'])} earlier]" if x.get("earlier") else "")
-                    for x in r["vitals_most_recent"] + r["labs_most_recent"]]
+                    for x in r["vitals_most_recent"] + r["labs_most_recent"]
+                    + r.get("social_history_observations", []) + r.get("screening_questionnaires", [])]
         details += [f"visit {x['date']}: {x['type']}" for x in r["visits"][:10]]
         return f"Chart for {who}: {r['summary']}", details
     if name == "lookup_icd10":

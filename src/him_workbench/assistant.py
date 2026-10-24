@@ -53,7 +53,7 @@ SYSTEM_PROMPT = (
     "latest context line. Answer only from what the chart returned. If the chart does not say, say it does not. "
     "Vitals and labs give the most recent value plus some earlier ones; report values and dates as given. The "
     "record has no reference ranges, so never say a value is normal, high, low or abnormal, never call a change "
-    "better, worse, rising or falling, and never diagnose, interpret results, or advise. Items listed as not read "
+    "better, worse, rising or falling, and never diagnose, interpret results or questionnaire scores, or advise. Items listed as not read "
     "were not read; do not say the chart lacks them. Give dates as the chart "
     "gives them. Only the problem list holds diagnoses; other findings are not diagnoses.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
@@ -288,12 +288,21 @@ def list_models(host: str | None = None, timeout: int = 10) -> list[str]:
         return [m["name"] for m in json.load(r).get("models", [])]
 
 
+def _num_ctx() -> int:
+    """Context window sent to Ollama. A whole patient chart is large and Ollama cuts off silently past the window,
+    so it is set explicitly. Override with HIM_NUM_CTX (tokens)."""
+    try:
+        return max(2048, int(os.environ.get("HIM_NUM_CTX", "16384")))
+    except ValueError:
+        return 16384
+
+
 def ollama_chat(model: str, host: str | None = None, timeout: int = 300) -> ChatFn:
     url = _host(host) + "/api/chat"
 
     def chat(messages: list, tools: list) -> dict:
         body = json.dumps({"model": model, "messages": messages, "tools": tools,
-                           "stream": False, "options": {"temperature": 0}}).encode()
+                           "stream": False, "options": {"temperature": 0, "num_ctx": _num_ctx()}}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.load(r)["message"]

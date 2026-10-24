@@ -24,8 +24,11 @@ from pathlib import Path
 
 PROBLEM_TAGS = {"disorder", "disease"}
 EARLIER_KEPT = 10
+SCREEN_EARLIER_KEPT = 3     # questionnaires have many items; keep the assistant's chart small
 _VITALS = "vital-signs"
 _LAB = "laboratory"
+_SOCIAL = "social-history"
+_SURVEY = "survey"
 
 
 @dataclass
@@ -87,6 +90,8 @@ class Chart:
     visits: list[Visit] = field(default_factory=list)
     vitals: list[Result] = field(default_factory=list)
     labs: list[Result] = field(default_factory=list)
+    social: list[Result] = field(default_factory=list)       # social-history observations, e.g. tobacco status
+    screenings: list[Result] = field(default_factory=list)   # questionnaires, e.g. PHQ-9, GAD-7, PRAPARE items
     immunizations: list[Immunization] = field(default_factory=list)
     allergies: list[Allergy] = field(default_factory=list)
     skipped: Counter = field(default_factory=Counter)
@@ -135,16 +140,25 @@ def _condition(res: dict) -> Problem:
     )
 
 
+_UNIT_WORDS = {"/a": "per year"}   # UCUM "a" is a year; spelled out so "50768 /a" is readable
+
+
 def _observation_value(res: dict) -> str:
     q = res.get("valueQuantity")
     if isinstance(q, dict) and q.get("value") is not None:
         v = q["value"]
         v = round(v, 2) if isinstance(v, float) else v
-        return f"{v} {q.get('unit') or ''}".strip()
+        unit = q.get("unit") or ""
+        unit = _UNIT_WORDS.get(unit, unit)
+        return f"{v} {unit}".strip()
     if res.get("valueCodeableConcept"):
-        return _coded(res["valueCodeableConcept"]).display
+        return clean(_coded(res["valueCodeableConcept"]).display)
     if res.get("valueString") is not None:
         return str(res["valueString"])
+    if isinstance(res.get("valueBoolean"), bool):
+        return "yes" if res["valueBoolean"] else "no"
+    if res.get("valueInteger") is not None:
+        return str(res["valueInteger"])
     return ""
 
 
@@ -207,7 +221,7 @@ def chart_from_resources(resources, patient_id: str = "") -> Chart:
             ))
         elif kind == "Observation":
             cats = _categories(res)
-            group = _VITALS if _VITALS in cats else _LAB if _LAB in cats else ""
+            group = next((g for g in (_VITALS, _LAB, _SOCIAL, _SURVEY) if g in cats), "")
             when = _date(res.get("effectiveDateTime"))
             what, value = _coded(res.get("code")), _observation_value(res)
             if value:
@@ -233,14 +247,17 @@ def chart_from_resources(resources, patient_id: str = "") -> Chart:
     for (group, _), found in seen_results.items():
         found.sort(key=lambda r: r.date, reverse=True)
         r = found[0]
-        r.earlier = [(o.date, o.value) for o in found[1:EARLIER_KEPT + 1]]
-        (chart.vitals if group == _VITALS else chart.labs).append(r)
+        keep = EARLIER_KEPT if group in (_VITALS, _LAB) else SCREEN_EARLIER_KEPT
+        r.earlier = [(o.date, o.value) for o in found[1:keep + 1]]
+        {_VITALS: chart.vitals, _LAB: chart.labs, _SOCIAL: chart.social, _SURVEY: chart.screenings}[group].append(r)
     chart.visits.sort(key=lambda v: v.start, reverse=True)
     chart.problems.sort(key=lambda p: p.onset, reverse=True)
     chart.medications.sort(key=lambda m: m.date, reverse=True)
     chart.immunizations.sort(key=lambda i: i.date, reverse=True)
     chart.vitals.sort(key=lambda r: r.what.display)
     chart.labs.sort(key=lambda r: r.what.display)
+    chart.social.sort(key=lambda r: r.what.display)
+    chart.screenings.sort(key=lambda r: r.what.display)
     return chart
 
 
@@ -294,7 +311,8 @@ def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -
         "patient": {"id": chart.patient_id, "name": name, "born": born, "sex": sex},
         "summary": (f"{len(act)} active and {len(past)} past problems, {len(chart.medications)} medications, "
                     f"{len(chart.allergies)} allergies, {len(chart.vitals)} vitals and {len(chart.labs)} labs "
-                    f"(most recent value of each), {len(chart.visits)} visits, {len(chart.immunizations)} immunizations, "
+                    f"(most recent value of each), {len(chart.social)} social-history items, {len(chart.screenings)} "
+                    f"questionnaire items, {len(chart.visits)} visits, {len(chart.immunizations)} immunizations, "
                     f"{len(chart.findings)} other findings."),
         "active_problems": [{**coded(p.what), "since": p.onset} for p in act],
         "past_problems": [{**coded(p.what), "from": p.onset, "to": p.resolved} for p in past],
@@ -302,6 +320,8 @@ def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -
         "allergies": [{**coded(a.what), "status": a.status} for a in chart.allergies],
         "vitals_most_recent": [_with_earlier(coded(r.what), r) for r in chart.vitals],
         "labs_most_recent": [_with_earlier(coded(r.what), r) for r in chart.labs],
+        "social_history_observations": [_with_earlier(coded(r.what), r) for r in chart.social],
+        "screening_questionnaires": [_with_earlier(coded(r.what), r) for r in chart.screenings],
         "visits": [{"date": v.start, "type": clean(v.kind), "class": v.cls} for v in visits],
         "immunizations": [{**coded(i.what), "date": i.date} for i in chart.immunizations],
         "other_findings_and_social_history": [{**coded(f.what), "date": f.onset} for f in chart.findings],
@@ -309,14 +329,14 @@ def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -
     }
     notes = [f"Each vital and lab gives its most recent value and, in 'earlier', up to {EARLIER_KEPT} older ones (date, value), "
              "newest first. Report values and dates as given. Never call a change better, worse, rising or falling.",
-             "This record has no reference ranges. Never say whether a value is normal, high, low or abnormal.",
+             "This record has no reference ranges. Never say whether a value is normal, high, low or abnormal. "
+             "Questionnaire scores (PHQ, GAD-7, AUDIT-C and so on) are reported as scores only; never say what a score means.",
              "Other findings and social history can include clinical items (such as prediabetes) and social ones "
              "(such as employment); they are not on the problem list."]
     unread = {k: n for k, n in chart.skipped.items() if k.startswith("Observation")}
     if unread:
-        notes.append("Some observations were not read, listed in resource_types_not_read (such as screening questionnaires "
-                     "and social-history items like tobacco status). If asked about those, say they were not read, not "
-                     "that the chart lacks them.")
+        notes.append("Some observations were not read, listed in resource_types_not_read. If asked about those, say they "
+                     "were not read, not that the chart lacks them.")
     if len(chart.visits) > len(visits):
         notes.append(f"Only the latest {len(visits)} of {len(chart.visits)} visits are shown. Tell the user the list is partial.")
     out["note"] = " ".join(notes)
@@ -351,6 +371,14 @@ def text_chart(chart: Chart, name: str = "") -> str:
     out += [line("", r.what, f"{r.value}  {r.date}") for r in chart.labs[:15]] or ["  none"]
     if len(chart.labs) > 15:
         out.append(f"  ... and {len(chart.labs) - 15} more")
+    if chart.social:
+        out += ["", f"Social history (observations): {len(chart.social)}"]
+        out += [line("", r.what, f"{r.value}  {r.date}") for r in chart.social]
+    if chart.screenings:
+        out += ["", f"Questionnaires and survey answers (most recent): {len(chart.screenings)}"]
+        out += [line("", r.what, f"{r.value}  {r.date}") for r in chart.screenings[:15]]
+        if len(chart.screenings) > 15:
+            out.append(f"  ... and {len(chart.screenings) - 15} more")
     out += ["", f"Visits: {len(chart.visits)} (latest first)"]
     out += [f"  {v.start}  {v.cls or '-':<5} {clean(v.kind)}" for v in chart.visits[:10]] or ["  none"]
     if len(chart.visits) > 10:

@@ -246,3 +246,20 @@ def test_ask_about_a_patient_shows_the_raw_chart_next_to_the_answer(tmp_path):
     assert call["tool"] == "patient_chart" and "Chart for Maria Okafor" in call["headline"]
     assert any("active: Asthma [195967001]" in line for line in call["lines"])
     assert r["answer"] == "One active problem: asthma."
+
+
+def test_chart_page_shows_social_history_and_questionnaires(tmp_path):
+    import json
+    b = _bundle("3")
+    b["entry"] += [
+        {"resource": {"resourceType": "Observation", "category": [{"coding": [{"code": "social-history"}]}],
+                      "code": {"coding": [{"code": "72166-2", "display": "Tobacco smoking status"}]},
+                      "valueCodeableConcept": {"coding": [{"display": "Never smoker"}]}, "effectiveDateTime": "2026-02-03T00:00:00Z"}},
+        {"resource": {"resourceType": "Observation", "category": [{"coding": [{"code": "survey"}]}],
+                      "code": {"coding": [{"code": "44261-6", "display": "PHQ-9 total score"}]},
+                      "valueQuantity": {"value": 3, "unit": "{score}"}, "effectiveDateTime": "2026-02-03T00:00:00Z"}}]
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(b))
+    page = make(tmp_path, chart_files={"3": f}).test_client().get("/patients/3/chart", headers=HDR).data
+    assert b"Social history" in page and b"Never smoker" in page
+    assert b"Questionnaires and survey answers" in page and b"PHQ-9 total score" in page and b"3 {score}" in page

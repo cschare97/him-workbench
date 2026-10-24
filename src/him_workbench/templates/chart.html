@@ -51,6 +51,20 @@
 </tbody></table>
 {% else %}<p class="dim">None on file.</p>{% endif %}
 
+{% if chart.social %}
+<h3>Social history <span class="dim">(most recent value of each)</span></h3>
+<table><thead><tr><th>Item</th><th class="num">Value</th><th>Date</th></tr></thead><tbody>
+{% for r in chart.social %}<tr><td>{{ r.what.display }}</td><td class="num">{{ r.value }}</td><td class="mono">{{ r.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
+{% if chart.screenings %}
+<h3>Questionnaires and survey answers <span class="dim">(most recent value of each item, scores as recorded; includes screening scores and intake items such as address, language and insurance)</span></h3>
+<table><thead><tr><th>Item</th><th class="num">Value</th><th>Date</th></tr></thead><tbody>
+{% for r in chart.screenings %}<tr><td>{{ r.what.display }}</td><td class="num">{{ r.value }}</td><td class="mono">{{ r.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
 <h3>Visits <span class="dim">({{ chart.visits|length }}, latest first)</span></h3>
 {% if chart.visits %}
 <table><thead><tr><th>Date</th><th>Class</th><th>Visit</th></tr></thead><tbody>
