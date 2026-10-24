@@ -17,6 +17,7 @@ import urllib.request
 from typing import Callable
 
 from . import audit
+from .chart import chart_to_dict, load_chart
 from .icd10 import ICD10Index, format_code, normalize_code, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
@@ -48,6 +49,13 @@ SYSTEM_PROMPT = (
     "when some results do not fit. If none fit, say so and offer to look up the ICD-10-CM code instead.\n"
     "- Keep education answers short: one line per fitting topic (title and a one-sentence gist taken from its "
     "summary) plus its link. Do not reprint whole summaries.\n"
+    "- Patient chart questions: only through patient_chart (when offered), and only about the patient named in the "
+    "latest context line. Answer only from what the chart returned. If the chart does not say, say it does not. "
+    "Vitals and labs give the most recent value plus some earlier ones; report values and dates as given. The "
+    "record has no reference ranges, so never say a value is normal, high, low or abnormal, never call a change "
+    "better, worse, rising or falling, and never diagnose, interpret results, or advise. Items listed as not read "
+    "were not read; do not say the chart lacks them. Give dates as the chart "
+    "gives them. Only the problem list holds diagnoses; other findings are not diagnoses.\n"
     "- You are a lookup aid, not coding, billing, or clinical advice."
 )
 
@@ -86,7 +94,14 @@ EDU_TOOL = {"type": "function", "function": {
     "description": "Get patient-education pages (title, short summary, link) from MedlinePlus for a disease. Pass an ICD-10-CM code (like E11.9) or a disease name (like 'pernicious anemia').",
     "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "ICD-10-CM code or disease name"}}, "required": ["query"]}}}
 
+CHART_TOOL = {"type": "function", "function": {
+    "name": "patient_chart",
+    "description": "Get one synthetic patient's chart from their FHIR file: problems, medications, allergies, most recent "
+                   "vitals and labs, visits, immunizations. Leave patient_id out to use the patient the user is viewing.",
+    "parameters": {"type": "object", "properties": {"patient_id": {"type": "string"}}}}}
+
 _CODE_IN_TEXT = re.compile(r"\b[A-Z]\d[0-9A-Z](?:\.[0-9A-Z]{1,4})?\b")
+_CODE_IN_TEXT_ANY_CASE = re.compile(_CODE_IN_TEXT.pattern, re.IGNORECASE)
 
 ChatFn = Callable[[list, list], dict]
 
@@ -96,11 +111,15 @@ class Assistant:
                  patients: list[Patient] | None = None, max_steps: int = 5,
                  on_tool: Callable[[str, dict], None] | None = None,
                  on_result: Callable[[str, dict], None] | None = None,
-                 drugs: RxNormClient | None = None, education: MedlinePlusClient | None = None):
+                 drugs: RxNormClient | None = None, education: MedlinePlusClient | None = None,
+                 charts: dict | None = None):
         self.chat = chat_fn
+        self.charts = charts or {}
+        self.current_patient_id: str | None = None
         self.drugs = drugs
         self.education = education
-        self.tools = TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
+        self.tools = (TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
+                      + ([CHART_TOOL] if self.charts else []))
         self.icd = icd
         self.patients = patients or []
         self._by_id = {p.id: p for p in self.patients}
@@ -159,6 +178,19 @@ class Assistant:
                                        "parts, not the combined condition. Tell the user what the code itself means "
                                        "(code_description) and that these pages cover its parts.").strip()
                 return out
+            if name == "patient_chart":
+                pid = str(args.get("patient_id") or self.current_patient_id or "")
+                if not self.charts:
+                    return {"error": "patient charts are not available (start the app with --fhir)"}
+                if not pid:
+                    return {"error": "no patient given and none is being viewed. Ask the user to open a patient's chart."}
+                path, p = self.charts.get(pid), self._by_id.get(pid)
+                if path is None or p is None:
+                    return {"error": "no chart for that patient id"}
+                chart = load_chart(path)
+                if chart.patient_id != pid:
+                    return {"error": "the file for this patient holds a different patient's record, so it was not used"}
+                return chart_to_dict(chart, f"{p.first} {p.last}", p.dob, p.sex)
             if name == "scan_duplicates":
                 if not self.patients:
                     return {"error": "no synthetic patient list loaded"}
@@ -195,12 +227,23 @@ class Assistant:
         except Exception as exc:  # report, never crash the loop
             return {"error": f"{type(exc).__name__}: {exc}"}
 
-    def _note_codes(self, result: dict) -> None:
-        for m in _CODE_IN_TEXT.findall(json.dumps(result)):
+    def _note_codes(self, result: dict, any_case: bool = False) -> None:
+        # a chart lists tests like "Hemoglobin A1c"; the model may write A1C, which is not a code, so a chart
+        # result registers code-shaped words in any case
+        pattern = _CODE_IN_TEXT_ANY_CASE if any_case else _CODE_IN_TEXT
+        for m in pattern.findall(json.dumps(result)):
             self.seen_codes.add(normalize_code(m))
 
     # ---- conversation ----
-    def ask(self, question: str) -> str:
+    def ask(self, question: str, patient_id: str | None = None) -> str:
+        """patient_id: the patient whose chart the user is looking at, if any. A context line naming them is added
+        to the question so the model knows who 'this patient' is."""
+        self.current_patient_id = None
+        if patient_id and patient_id in self._by_id:
+            p = self._by_id[patient_id]
+            self.current_patient_id = patient_id
+            question = (f"[Context: the user is viewing the chart of {p.first} {p.last} (patient id {patient_id}). "
+                        f"Use patient_chart for questions about this patient.]\n{question}")
         self.messages.append({"role": "user", "content": question})
         for _ in range(self.max_steps):
             msg = self.chat(self.messages, self.tools)
@@ -218,7 +261,7 @@ class Assistant:
                     except json.JSONDecodeError:
                         args = {}
                 result = self.run_tool(fn.get("name", ""), args)
-                self._note_codes(result)
+                self._note_codes(result, any_case=fn.get("name") == "patient_chart")
                 if self.on_result:
                     self.on_result(fn.get("name", ""), result)
                 self.messages.append({"role": "tool", "tool_name": fn.get("name", ""),

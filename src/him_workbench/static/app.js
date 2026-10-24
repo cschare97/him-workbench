@@ -56,7 +56,7 @@
     ansEl.innerHTML = '<div class="busy">Asking the model…</div>';
     toolsEl.innerHTML = "";
     open();
-    post("/api/ask", { question: q }).then(function (res) {
+    post("/api/ask", form.dataset.patient ? { question: q, patient_id: form.dataset.patient } : { question: q }).then(function (res) {
       if (!res.ok) {
         ansEl.innerHTML = '<p class="warn">' + esc(res.body.error || "Something went wrong.") + "</p>";
         return;

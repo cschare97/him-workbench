@@ -168,3 +168,71 @@ def test_data_quality_tool_returns_counts_only(icd):
     assert msg["records"] == 2 and msg["problems"]["dob_malformed"] == 1 and msg["problems"]["zip_malformed"] == 1
     assert "Alvarado" not in json.dumps(msg) and "2 records" in msg["summary"]
     assert msg["empty_fields"] == ["phone"] and "phone" not in msg["missing"]
+
+
+# ---- patient chart tool ----
+def _chart_file(tmp_path, pid="p1"):
+    f = tmp_path / f"Maria_Okafor_{pid}.json"
+    f.write_text(json.dumps({"resourceType": "Bundle", "entry": [
+        {"resource": {"resourceType": "Patient", "id": pid}},
+        {"resource": {"resourceType": "Condition", "clinicalStatus": {"coding": [{"code": "active"}]},
+                      "code": {"coding": [{"code": "271737000", "display": "Anemia (disorder)"}]},
+                      "onsetDateTime": "2022-01-25T00:00:00Z"}},
+        {"resource": {"resourceType": "Observation", "category": [{"coding": [{"code": "laboratory"}]}],
+                      "code": {"coding": [{"code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood"}]},
+                      "valueQuantity": {"value": 5.89, "unit": "%"}, "effectiveDateTime": "2026-02-03T00:00:00Z"}}]}))
+    return f
+
+
+def _chart_bot(tmp_path, *replies, pid="p1"):
+    pts = [Patient(pid, "Maria", "Okafor", "1991-11-02", "F", "60614"), Patient("p2", "Bob", "Smith", "1980-01-01", "M", "90210")]
+    return Assistant(scripted(*replies), patients=pts, charts={pid: _chart_file(tmp_path, pid)})
+
+
+def test_patient_chart_tool_is_offered_only_when_charts_exist(tmp_path):
+    assert all(t["function"]["name"] != "patient_chart" for t in Assistant(scripted()).tools)
+    assert any(t["function"]["name"] == "patient_chart" for t in _chart_bot(tmp_path).tools)
+
+
+def test_patient_chart_uses_the_patient_being_viewed(tmp_path):
+    bot = _chart_bot(tmp_path, call("patient_chart"), say("Active problem: anemia."))
+    seen = {}
+    bot.on_result = lambda n, r: seen.update(r)
+    bot.ask("what problems does this patient have?", patient_id="p1")
+    assert seen["patient"]["name"] == "Maria Okafor" and seen["active_problems"][0]["name"] == "Anemia"
+    assert "no reference ranges" in seen["note"] and "Never say whether a value is normal" in seen["note"]
+    user = [m for m in bot.messages if m["role"] == "user"][0]["content"]
+    assert user.startswith("[Context: the user is viewing the chart of Maria Okafor (patient id p1)")
+
+
+def test_patient_chart_with_no_patient_in_view_and_no_id_says_so(tmp_path):
+    bot = _chart_bot(tmp_path)
+    assert "no patient given" in bot.run_tool("patient_chart", {})["error"]
+
+
+def test_patient_chart_unknown_or_chartless_patient_is_an_error_not_a_guess(tmp_path):
+    bot = _chart_bot(tmp_path)
+    assert "no chart" in bot.run_tool("patient_chart", {"patient_id": "p2"})["error"]
+    assert "no chart" in bot.run_tool("patient_chart", {"patient_id": "nope"})["error"]
+
+
+def test_patient_chart_refuses_a_file_holding_another_patient(tmp_path):
+    bot = _chart_bot(tmp_path)
+    bot.charts["p1"] = _chart_file(tmp_path, "someone-else")
+    assert "different patient" in bot.run_tool("patient_chart", {"patient_id": "p1"})["error"]
+
+
+def test_unknown_viewed_patient_adds_no_context_line(tmp_path):
+    bot = _chart_bot(tmp_path, say("ok"))
+    bot.ask("hello", patient_id="not-a-patient")
+    assert bot.messages[1]["content"] == "hello" and bot.current_patient_id is None
+
+
+def test_a1c_written_in_capitals_is_not_flagged_as_an_unverified_code(tmp_path):
+    bot = _chart_bot(tmp_path, call("patient_chart"), say("The most recent A1C was 5.89 %."))
+    assert "[!]" not in bot.ask("last a1c?", patient_id="p1")
+
+
+def test_a_made_up_code_is_still_flagged_after_a_chart_lookup(tmp_path):
+    bot = _chart_bot(tmp_path, call("patient_chart"), say("The code is Z99.89."))
+    assert "Z99.89" in bot.ask("what code?", patient_id="p1").split("[!]")[1]

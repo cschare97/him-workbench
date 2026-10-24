@@ -61,7 +61,8 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     st.quality = analyze(patients) if patients else None
 
     def new_bot() -> Assistant | None:
-        return Assistant(chat_factory(st.model), icd=icd, patients=patients, drugs=drugs, education=education) if st.model else None
+        return (Assistant(chat_factory(st.model), icd=icd, patients=patients, drugs=drugs, education=education,
+                         charts=chart_files) if st.model else None)
 
     st.bot = new_bot()
 
@@ -133,7 +134,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
             except (OSError, ValueError):
                 problem = "That patient's FHIR file could not be read."
         return render_template("chart.html", active="patients", page_title=f"{p.first} {p.last}", p=p,
-                               chart=chart, problem=problem, act=active(chart.problems) if chart else [],
+                               ask_patient=p if chart else None, chart=chart, problem=problem, act=active(chart.problems) if chart else [],
                                past=[x for x in chart.problems if x.status != "active"] if chart else [])
 
     @app.get("/patients/<pid>/learn")
@@ -236,7 +237,11 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     # ---- assistant ----
     @app.post("/api/ask")
     def api_ask():
-        question = str((request.get_json(silent=True) or {}).get("question", "")).strip()
+        body = request.get_json(silent=True) or {}
+        question = str(body.get("question", "")).strip()
+        patient_id = body.get("patient_id")
+        if patient_id is not None and (not isinstance(patient_id, str) or patient_id not in by_id):
+            return jsonify(error="That patient is not in the loaded list."), 400
         if not question:
             return jsonify(error="Type a question first."), 400
         if len(question) > 500:
@@ -253,7 +258,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                     calls[-1].update(headline=head, lines=lines)
             bot.on_result = _res
             try:
-                answer = bot.ask(question)
+                answer = bot.ask(question, patient_id=patient_id)
             except Exception as exc:
                 return jsonify(error=f"The model did not answer ({type(exc).__name__}). Is Ollama running?"), 502
         return jsonify(answer=answer, calls=calls, model=st.model)

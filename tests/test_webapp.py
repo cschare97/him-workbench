@@ -204,3 +204,45 @@ def test_chart_shows_about_links_only_when_education_is_on(tmp_path):
     off = make(tmp_path, chart_files={"3": f}).test_client()
     assert b"/patients/3/learn?" in on.get("/patients/3/chart", headers=HDR).data
     assert b"/learn?" not in off.get("/patients/3/chart", headers=HDR).data
+
+
+def test_ask_with_a_patient_passes_context_and_unknown_patient_is_refused(tmp_path):
+    import json
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3")))
+    seen = []
+    def chat(messages, tools):
+        seen.append(([m["content"] for m in messages if m["role"] == "user"], [t["function"]["name"] for t in tools]))
+        return {"role": "assistant", "content": "ok"}
+    app = create_app(patients=PTS, model="fake", chat_factory=lambda m: chat, texture_dir=tmp_path / "tex",
+                     models_lister=lambda: ["fake"], chart_files={"3": f})
+    c = app.test_client()
+    ok = c.post("/api/ask", json={"question": "what problems?", "patient_id": "3"}, headers=HDR)
+    assert ok.status_code == 200 and "Maria Okafor" in seen[0][0][0] and "patient_chart" in seen[0][1]
+    assert c.post("/api/ask", json={"question": "x", "patient_id": "nope"}, headers=HDR).status_code == 400
+    assert c.post("/api/ask", json={"question": "x", "patient_id": 7}, headers=HDR).status_code == 400
+
+
+def test_chart_page_points_the_prompt_bar_at_that_patient(tmp_path):
+    import json
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3")))
+    c = make(tmp_path, chart_files={"3": f}).test_client()
+    page = c.get("/patients/3/chart", headers=HDR).data
+    assert b'data-patient="3"' in page and b"Ask about Maria&#39;s chart" in page
+    assert b"data-patient" not in c.get("/patients", headers=HDR).data
+
+
+def test_ask_about_a_patient_shows_the_raw_chart_next_to_the_answer(tmp_path):
+    import json
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3")))
+    replies = iter([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "patient_chart", "arguments": {}}}]},
+                    {"role": "assistant", "content": "One active problem: asthma."}])
+    app = create_app(patients=PTS, model="fake", chat_factory=lambda m: (lambda messages, tools: next(replies)),
+                     texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"], chart_files={"3": f})
+    r = app.test_client().post("/api/ask", json={"question": "problems?", "patient_id": "3"}, headers=HDR).get_json()
+    call = r["calls"][0]
+    assert call["tool"] == "patient_chart" and "Chart for Maria Okafor" in call["headline"]
+    assert any("active: Asthma [195967001]" in line for line in call["lines"])
+    assert r["answer"] == "One active problem: asthma."

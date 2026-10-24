@@ -17,10 +17,10 @@
       <a href="/sources" {% if nav == 'sources' %}aria-current="page"{% endif %}>Data sources</a>
       <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
     </nav>
-    <form class="ask" id="ask-form" role="search" autocomplete="off">
+    <form class="ask" id="ask-form" role="search" autocomplete="off"{% if ask_patient %} data-patient="{{ ask_patient.id }}"{% endif %}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3.5h12v7H8.5L5 13.5v-3H2z" stroke-linejoin="round"/></svg>
       {% set items = ['patients', 'codes'] + (['drugs'] if drugs_on else []) + (['diseases'] if education_on else []) %}
-      {% set ask = 'Ask about ' ~ (items|join(', ')) %}
+      {% set ask = ('Ask about ' ~ ask_patient.first ~ "'s chart") if ask_patient else ('Ask about ' ~ (items|join(', '))) %}
       <label class="sr" for="ask-input">{{ ask }}</label>
       <input id="ask-input" type="text" maxlength="500" placeholder="{{ ask }}">
       <kbd aria-hidden="true">/</kbd>

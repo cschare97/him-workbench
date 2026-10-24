@@ -43,6 +43,15 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
         if r.get("code_description"):
             details.insert(0, f"{r['code']} means: {r['code_description']}")
         return f"{count} MedlinePlus page(s) for {r.get('code') or r.get('term')}", details or [r.get("note", "")]
+    if name == "patient_chart":
+        who = r["patient"]["name"] or r["patient"]["id"]
+        details = [f"active: {x['name']} [{x['code']}]" for x in r["active_problems"]]
+        details += [f"past: {x['name']} [{x['code']}] {x['from']} to {x['to']}".rstrip() for x in r["past_problems"]]
+        details += [f"medication: {x['name']} {x['status']} {x['date']}" for x in r["medications"]]
+        details += [f"{x['name']}: {x['value']} ({x['date']})" + (f"  [+{len(x['earlier'])} earlier]" if x.get("earlier") else "")
+                    for x in r["vitals_most_recent"] + r["labs_most_recent"]]
+        details += [f"visit {x['date']}: {x['type']}" for x in r["visits"][:10]]
+        return f"Chart for {who}: {r['summary']}", details
     if name == "lookup_icd10":
         return f"{r.get('status')}: {r.get('code')} {r.get('description', r.get('note', ''))}", []
     if name == "data_quality_report":

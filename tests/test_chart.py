@@ -52,7 +52,7 @@ def test_labs_and_vitals_are_separate_and_other_observations_are_counted():
     c = chart_from_resources([obs("Glucose", 90, cat="laboratory", code="2339-0"), obs("Heart rate", 70, code="8867-4"),
                               obs("Tobacco", 1, cat="social-history", code="72166-2")])
     assert [r.what.display for r in c.labs] == ["Glucose"] and [r.what.display for r in c.vitals] == ["Heart rate"]
-    assert c.skipped["Observation"] == 1
+    assert c.skipped["Observation (social-history)"] == 1
 
 
 def test_visits_sorted_latest_first():
@@ -116,3 +116,54 @@ def test_text_chart_lists_past_problems_findings_and_strips_tags():
     t = text_chart(c)
     assert "Past problems" in t and "Otitis media" in t and "Full-time employment" in t
     assert "Well child visit" in t and "(procedure)" not in t and "(disorder)" not in t
+
+
+def test_chart_to_dict_holds_the_chart_and_warns_about_ranges_and_partial_visits():
+    from him_workbench.chart import chart_to_dict
+    enc = lambda d: {"resourceType": "Encounter", "class": {"code": "AMB"}, "type": [{"coding": [{"display": "Check-up (procedure)"}]}],
+                     "period": {"start": f"2020-01-{d:02d}T00:00:00Z"}}
+    res = [cond("Asthma (disorder)", code="195967001"), cond("Prediabetes (finding)", code="714628002")] + [enc(i) for i in range(1, 29)] * 2
+    d = chart_to_dict(chart_from_resources(res), "Test Patient", "1990-01-01", "F")
+    assert d["patient"]["name"] == "Test Patient" and d["active_problems"][0] == {"name": "Asthma", "code": "195967001", "since": "2020-01-05"}
+    assert d["other_findings_and_social_history"][0]["name"] == "Prediabetes"
+    assert len(d["visits"]) == 40 and "Only the latest 40 of 56 visits" in d["note"]
+    assert "no reference ranges" in d["note"]
+
+
+def bp_panel(sys_, dia, date):
+    return {"resourceType": "Observation", "category": [{"coding": [{"code": "vital-signs"}]}],
+            "code": {"coding": [{"code": "85354-9", "display": "Blood pressure panel with all children optional"}]},
+            "effectiveDateTime": date,
+            "component": [
+                {"code": {"coding": [{"code": "8480-6", "display": "Systolic Blood Pressure"}]}, "valueQuantity": {"value": sys_, "unit": "mm[Hg]"}},
+                {"code": {"coding": [{"code": "8462-4", "display": "Diastolic Blood Pressure"}]}, "valueQuantity": {"value": dia, "unit": "mm[Hg]"}}]}
+
+
+def test_blood_pressure_panel_components_are_read_not_dropped():
+    c = chart_from_resources([bp_panel(118, 76, "2024-01-01T00:00:00Z"), bp_panel(124, 80, "2026-02-03T00:00:00Z")])
+    by = {r.what.display: r for r in c.vitals}
+    assert by["Systolic Blood Pressure"].value == "124 mm[Hg]" and by["Systolic Blood Pressure"].date == "2026-02-03"
+    assert by["Diastolic Blood Pressure"].value == "80 mm[Hg]"
+    assert by["Systolic Blood Pressure"].earlier == [("2024-01-01", "118 mm[Hg]")]
+    assert not c.skipped
+
+
+def test_earlier_values_are_kept_newest_first_and_capped():
+    from him_workbench.chart import EARLIER_KEPT
+    res = [obs("Heart rate", 60 + i, date=f"20{10 + i:02d}-01-01T00:00:00Z", code="8867-4") for i in range(15)]
+    r = chart_from_resources(res).vitals[0]
+    assert r.value == "74 mmHg" and len(r.earlier) == EARLIER_KEPT and r.earlier[0] == ("2023-01-01", "73 mmHg")
+
+
+def test_skipped_observations_are_named_by_category():
+    c = chart_from_resources([obs("PHQ-9", 3, cat="survey"), obs("Tobacco", 1, cat="social-history"), obs("Mystery", 1, cat="")])
+    assert c.skipped == {"Observation (survey)": 1, "Observation (social-history)": 1, "Observation": 1}
+
+
+def test_chart_to_dict_carries_earlier_values_and_the_not_read_warning():
+    from him_workbench.chart import chart_to_dict
+    d = chart_to_dict(chart_from_resources([bp_panel(118, 76, "2024-01-01T00:00:00Z"), bp_panel(124, 80, "2026-02-03T00:00:00Z"),
+                                            obs("PHQ-9", 3, cat="survey")]))
+    sys_ = next(v for v in d["vitals_most_recent"] if v["name"] == "Systolic Blood Pressure")
+    assert sys_["value"] == "124 mm[Hg]" and sys_["earlier"] == [{"date": "2024-01-01", "value": "118 mm[Hg]"}]
+    assert "not read" in d["note"] and "Never call a change better" in d["note"]

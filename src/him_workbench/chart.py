@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 PROBLEM_TAGS = {"disorder", "disease"}
+EARLIER_KEPT = 10
 _VITALS = "vital-signs"
 _LAB = "laboratory"
 
@@ -62,6 +63,7 @@ class Result:
     what: Coded
     value: str = ""
     date: str = ""
+    earlier: list = field(default_factory=list)   # (date, value) pairs, newest first, up to EARLIER_KEPT
 
 
 @dataclass
@@ -179,7 +181,7 @@ def chart_from_resources(resources, patient_id: str = "") -> Chart:
     chart = Chart(patient_id=patient_id)
     resources = [r for r in resources]
     index = {str(r["id"]): r for r in resources if isinstance(r, dict) and r.get("id")}
-    latest: dict[tuple[str, str], Result] = {}
+    seen_results: dict[tuple[str, str], list[Result]] = {}
     for res in resources:
         if not isinstance(res, dict):
             continue
@@ -206,15 +208,21 @@ def chart_from_resources(resources, patient_id: str = "") -> Chart:
         elif kind == "Observation":
             cats = _categories(res)
             group = _VITALS if _VITALS in cats else _LAB if _LAB in cats else ""
-            what = _coded(res.get("code"))
-            value = _observation_value(res)
-            if not group or not what.display or not value:
-                chart.skipped["Observation"] += 1
+            when = _date(res.get("effectiveDateTime"))
+            what, value = _coded(res.get("code")), _observation_value(res)
+            if value:
+                parts = [(what, value)]
+            else:
+                # a panel such as blood pressure keeps its values inside "component"
+                parts = [(_coded(c.get("code")), _observation_value(c)) for c in res.get("component") or []
+                         if isinstance(c, dict)]
+                parts = [(w, v) for w, v in parts if w.display and v]
+            if not group or not parts or not all(w.display for w, _ in parts):
+                label = next(iter(sorted(cats - {""})), "")
+                chart.skipped[f"Observation ({label})" if label else "Observation"] += 1
                 continue
-            r = Result(what, value, _date(res.get("effectiveDateTime")))
-            key = (group, what.code or what.display)
-            if key not in latest or r.date >= latest[key].date:
-                latest[key] = r
+            for w, v in parts:
+                seen_results.setdefault((group, w.code or w.display), []).append(Result(w, v, when))
         elif kind == "Immunization":
             chart.immunizations.append(Immunization(_coded(res.get("vaccineCode")),
                                                     _date(res.get("occurrenceDateTime"))))
@@ -222,7 +230,10 @@ def chart_from_resources(resources, patient_id: str = "") -> Chart:
             chart.allergies.append(Allergy(_coded(res.get("code")), _status(res.get("clinicalStatus"))))
         elif kind != "Medication":  # used to name medication requests, not shown on its own
             chart.skipped[str(kind)] += 1
-    for (group, _), r in latest.items():
+    for (group, _), found in seen_results.items():
+        found.sort(key=lambda r: r.date, reverse=True)
+        r = found[0]
+        r.earlier = [(o.date, o.value) for o in found[1:EARLIER_KEPT + 1]]
         (chart.vitals if group == _VITALS else chart.labs).append(r)
     chart.visits.sort(key=lambda v: v.start, reverse=True)
     chart.problems.sort(key=lambda p: p.onset, reverse=True)
@@ -260,6 +271,55 @@ def chart_files_from(path) -> dict[str, Path]:
     for f in sorted(p.glob("*.json")) if p.is_dir() else []:
         if "_" in f.stem:
             out[f.stem.rsplit("_", 1)[-1]] = f
+    return out
+
+
+def _with_earlier(base: dict, r: Result) -> dict:
+    out = {**base, "value": r.value, "date": r.date}
+    if r.earlier:
+        out["earlier"] = [{"date": d, "value": v} for d, v in r.earlier]
+    return out
+
+
+def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -> dict:
+    """The whole chart as plain data for the assistant's patient_chart tool. Dates are YYYY-MM-DD, codes are the
+    ones the FHIR file uses, and nothing is added that the file does not say."""
+    def coded(c: Coded) -> dict:
+        return {"name": clean(c.display), "code": c.code}
+
+    act = [p for p in chart.problems if p.status == "active"]
+    past = [p for p in chart.problems if p.status != "active"]
+    visits = chart.visits[:40]
+    out = {
+        "patient": {"id": chart.patient_id, "name": name, "born": born, "sex": sex},
+        "summary": (f"{len(act)} active and {len(past)} past problems, {len(chart.medications)} medications, "
+                    f"{len(chart.allergies)} allergies, {len(chart.vitals)} vitals and {len(chart.labs)} labs "
+                    f"(most recent value of each), {len(chart.visits)} visits, {len(chart.immunizations)} immunizations, "
+                    f"{len(chart.findings)} other findings."),
+        "active_problems": [{**coded(p.what), "since": p.onset} for p in act],
+        "past_problems": [{**coded(p.what), "from": p.onset, "to": p.resolved} for p in past],
+        "medications": [{**coded(m.what), "status": m.status, "date": m.date} for m in chart.medications],
+        "allergies": [{**coded(a.what), "status": a.status} for a in chart.allergies],
+        "vitals_most_recent": [_with_earlier(coded(r.what), r) for r in chart.vitals],
+        "labs_most_recent": [_with_earlier(coded(r.what), r) for r in chart.labs],
+        "visits": [{"date": v.start, "type": clean(v.kind), "class": v.cls} for v in visits],
+        "immunizations": [{**coded(i.what), "date": i.date} for i in chart.immunizations],
+        "other_findings_and_social_history": [{**coded(f.what), "date": f.onset} for f in chart.findings],
+        "resource_types_not_read": dict(chart.skipped),
+    }
+    notes = [f"Each vital and lab gives its most recent value and, in 'earlier', up to {EARLIER_KEPT} older ones (date, value), "
+             "newest first. Report values and dates as given. Never call a change better, worse, rising or falling.",
+             "This record has no reference ranges. Never say whether a value is normal, high, low or abnormal.",
+             "Other findings and social history can include clinical items (such as prediabetes) and social ones "
+             "(such as employment); they are not on the problem list."]
+    unread = {k: n for k, n in chart.skipped.items() if k.startswith("Observation")}
+    if unread:
+        notes.append("Some observations were not read, listed in resource_types_not_read (such as screening questionnaires "
+                     "and social-history items like tobacco status). If asked about those, say they were not read, not "
+                     "that the chart lacks them.")
+    if len(chart.visits) > len(visits):
+        notes.append(f"Only the latest {len(visits)} of {len(chart.visits)} visits are shown. Tell the user the list is partial.")
+    out["note"] = " ".join(notes)
     return out
 
 
