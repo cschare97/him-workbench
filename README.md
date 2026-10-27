@@ -29,7 +29,7 @@ flowchart TB
     you(["You"])
 
     subgraph ui["Interfaces: this computer only (127.0.0.1)"]
-        web["Web UI: webapp.py<br/>tabs + prompt bar"]
+        web["Web UI: webapp.py<br/>tabs, patient charts, ROI tracker, prompt bar"]
         cli["Terminal tools: scripts/"]
     end
 
@@ -41,8 +41,10 @@ flowchart TB
     subgraph core["Core modules: src/him_workbench"]
         match["matching.py<br/>duplicate matcher"]
         qual["quality.py<br/>data quality"]
-        icd["icd10.py<br/>code search"]
+        icd["icd10.py<br/>code search + did-you-mean"]
         load["data.py, fhir.py<br/>patient loaders"]
+        chart["chart.py<br/>FHIR patient chart"]
+        roi["roi.py<br/>ROI request tracker"]
     end
 
     subgraph net["Internet, opt-in only: --drugs, --education"]
@@ -52,29 +54,35 @@ flowchart TB
 
     audit[/"audit.py: logs/audit.jsonl<br/>tool names only"/]
 
-    subgraph data["Local data: data/ (gitignored)"]
+    subgraph data["Local data: data/ and data/roi.db (gitignored)"]
         syn[("Synthea patients<br/>CSV or FHIR")]
         codes[("ICD-10-CM codes<br/>CDC file")]
+        roidb[("ROI requests<br/>SQLite")]
     end
 
     you --> web
     you --> cli
-    web -->|prompt bar| asst
+    web -->|prompt bar, incl. "ask about this patient"| asst
+    web -->|reads/writes directly, no model| roi
     cli --> asst
     asst <-->|chat and tool calls| llm
-    asst -->|local tools| core
+    asst -->|local tools, incl. patient_chart| core
     asst -.->|search_drug, disease_education| net
+    web -.->|chart About links: code only| net
     asst -->|every tool call| audit
     load -->|reads| syn
     load --> match
     load --> qual
+    load --> chart
     icd -->|reads| codes
+    roi -->|reads/writes| roidb
 ```
 
-- Everything outside the dotted lines runs on your computer. The two internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about.
-- The assistant never answers from the model's memory: codes, duplicates and data-quality numbers come from the tools, and the raw tool results are shown next to the model's answer.
-- The web UI's tabs (Patients, Duplicates, Data quality, Codes) call the core modules directly. Only the prompt bar goes through the assistant.
-- The audit log records which tool ran, never the question, the drug name, the code, or any patient details.
+- Everything outside the dotted lines runs on your computer. The internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about — never patient information.
+- The assistant never answers from the model's memory: codes, duplicates, data-quality numbers and chart data come from the tools, and the raw tool results are shown next to the model's answer.
+- The ICD-10 search suggests close words for a misspelled term instead of silently searching a different one; the model is never allowed to swap a word in on its own.
+- The web UI's tabs (Patients, Duplicates, Data quality, Codes) and the ROI request tracker call the core modules directly, with no model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
+- The audit log records which tool ran, never the question, the drug name, the code, any patient details, or anything about an ROI request.
 
 ## Setup
 
