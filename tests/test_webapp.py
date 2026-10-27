@@ -309,6 +309,55 @@ def test_roi_overdue_is_shown_and_extension_works(tmp_path):
     assert b"extended" in c.get("/roi/2", headers=HDR).data
 
 
+def _referrals_app(tmp_path):
+    from datetime import date
+    from him_workbench.referrals import ReferralStore
+    return make(tmp_path, referral_store=ReferralStore(":memory:", followup_days=14),
+               today=lambda: date(2026, 10, 24))
+
+
+def test_referrals_page_log_schedule_and_refuse_out_of_order(tmp_path):
+    c = _referrals_app(tmp_path).test_client()
+    page = c.get("/referrals", headers=HDR).data
+    assert b"Referrals" in page and b"Log a referral" in page and b"Maria Okafor" in page
+    r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
+                                       "reason": "intermittent palpitations", "diagnosis": "Palpitations"},
+               headers=HDR)
+    assert r.status_code == 200 and r.get_json()["id"] == 1
+    page = c.get("/referrals", headers=HDR).data
+    assert b"Cardiology" in page and b"Maria Okafor" in page and b"on track" in page
+    bad = c.post("/referrals/1/status", json={"status": "completed"}, headers=HDR)
+    assert bad.status_code == 400 and "scheduled" in bad.get_json()["error"]
+    assert c.post("/referrals/1/status", json={"status": "scheduled", "note": "appt 11/4"},
+                  headers=HDR).status_code == 200
+    detail = c.get("/referrals/1", headers=HDR).data
+    assert b"appt 11/4" in detail and b"Scheduled" in detail
+
+
+def test_referrals_rejects_unknown_patient_bad_input_and_non_json(tmp_path):
+    c = _referrals_app(tmp_path).test_client()
+    r = c.post("/referrals/new", json={"patient_id": "nope", "specialty": "Cardiology", "priority": "routine",
+                                       "reason": "x"}, headers=HDR)
+    assert r.status_code == 400 and "Pick a patient" in r.get_json()["error"]
+    r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
+                                       "reason": ""}, headers=HDR)
+    assert r.status_code == 400
+    assert c.post("/referrals/new", data="x=1", headers=HDR).status_code == 415
+    assert c.get("/referrals/99", headers=HDR).status_code == 404
+
+
+def test_referral_no_response_is_shown_and_decline_requires_note(tmp_path):
+    c = _referrals_app(tmp_path).test_client()
+    c.post("/referrals/new", json={"patient_id": "3", "specialty": "Podiatry", "priority": "routine",
+                                   "reason": "foot pain", "created": "2026-09-01"}, headers=HDR)
+    assert b"no response in" in c.get("/referrals", headers=HDR).data
+    bad = c.post("/referrals/1/status", json={"status": "declined"}, headers=HDR)
+    assert bad.status_code == 400 and "Note is required" in bad.get_json()["error"]
+    assert c.post("/referrals/1/status", json={"status": "declined", "note": "not accepting new patients"},
+                  headers=HDR).status_code == 200
+    assert b"closed" in c.get("/referrals", headers=HDR).data
+
+
 # ---- security edge cases: these assert the app behaves correctly under adversarial-shaped input,
 # not that it fails. Written as ordinary pytest assertions, same as the rest of this file. ----
 
@@ -367,6 +416,17 @@ def test_roi_summary_over_300_chars_is_refused_even_posted_directly(tmp_path):
     c = app.test_client()
     r = c.post("/roi/new", json={"patient_id": "3", "requester_type": "attorney",
                                  "summary": "x" * 301, "received": "2026-10-01"}, headers=HDR)
+    assert r.status_code == 400
+
+
+def test_referral_reason_over_300_chars_is_refused_even_posted_directly(tmp_path):
+    # Same server-side enforcement check, for the referrals form's reason field.
+    from datetime import date
+    from him_workbench.referrals import ReferralStore
+    app = make(tmp_path, referral_store=ReferralStore(":memory:", followup_days=14), today=lambda: date(2026, 10, 24))
+    c = app.test_client()
+    r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
+                                       "reason": "x" * 301}, headers=HDR)
     assert r.status_code == 400
 
 

@@ -29,7 +29,7 @@ flowchart TB
     you(["You"])
 
     subgraph ui["Interfaces: this computer only (127.0.0.1)"]
-        web["Web UI: webapp.py<br/>tabs, patient charts, ROI tracker, prompt bar"]
+        web["Web UI: webapp.py<br/>tabs, patient charts, ROI tracker, referrals, prompt bar"]
         cli["Terminal tools: scripts/"]
     end
 
@@ -45,6 +45,7 @@ flowchart TB
         load["data.py, fhir.py<br/>patient loaders"]
         chart["chart.py<br/>FHIR patient chart"]
         roi["roi.py<br/>ROI request tracker"]
+        ref["referrals.py<br/>referral tracker"]
     end
 
     subgraph net["Internet, opt-in only: --drugs, --education"]
@@ -54,16 +55,18 @@ flowchart TB
 
     audit[/"audit.py: logs/audit.jsonl<br/>tool names only"/]
 
-    subgraph data["Local data: data/ and data/roi.db (gitignored)"]
+    subgraph data["Local data: data/ (gitignored)"]
         syn[("Synthea patients<br/>CSV or FHIR")]
         codes[("ICD-10-CM codes<br/>CDC file")]
-        roidb[("ROI requests<br/>SQLite")]
+        roidb[("ROI requests<br/>SQLite: roi.db")]
+        refdb[("Referrals<br/>SQLite: referrals.db")]
     end
 
     you --> web
     you --> cli
     web -->|prompt bar, incl. "ask about this patient"| asst
     web -->|reads/writes directly, no model| roi
+    web -->|reads/writes directly, no model| ref
     cli --> asst
     asst <-->|chat and tool calls| llm
     asst -->|local tools, incl. patient_chart| core
@@ -76,13 +79,14 @@ flowchart TB
     load --> chart
     icd -->|reads| codes
     roi -->|reads/writes| roidb
+    ref -->|reads/writes| refdb
 ```
 
 - Everything outside the dotted lines runs on your computer. The internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about — never patient information.
 - The assistant never answers from the model's memory: codes, duplicates, data-quality numbers and chart data come from the tools, and the raw tool results are shown next to the model's answer.
 - The ICD-10 search suggests close words for a misspelled term instead of silently searching a different one; the model is never allowed to swap a word in on its own.
-- The web UI's tabs (Patients, Duplicates, Data quality, Codes) and the ROI request tracker call the core modules directly, with no model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
-- The audit log records which tool ran, never the question, the drug name, the code, any patient details, or anything about an ROI request.
+- The web UI's tabs (Patients, Duplicates, Data quality, Codes), the ROI request tracker, and the referral tracker call the core modules directly, with no model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
+- The audit log records which tool ran, never the question, the drug name, the code, any patient details, or anything about an ROI request or referral.
 
 ## Setup
 
@@ -161,6 +165,10 @@ With `--fhir` and a model chosen, the prompt bar on a patient's chart page says 
 ### ROI request tracker (web UI)
 
 The **ROI requests** link in the web UI tracks release-of-information requests: someone asks for a patient's records, the clinic checks who they are and whether they may see them, then answers inside a deadline. Each request records the patient (one of the loaded synthetic patients), who is asking, what was requested, the date received, the due date and a dated history. Rules the tracker enforces: a request cannot be fulfilled before it is verified; a denial needs a written reason; closed requests cannot be reopened; the deadline can be extended once, on or before the due date. Open requests show days left or days overdue. The deadline is 30 calendar days by default and one 30-day extension is allowed, which follows the [HHS page on the HIPAA right of access](https://www.hhs.gov/hipaa/for-professionals/faq/2053/in-some-cases-the-30-day-timeframe/index.html); state rules can be shorter, so set `HIM_ROI_DAYS` (1 to 90) for yours. Requests are stored in `data/roi.db` on this computer (gitignored). The audit log records that an action happened, never who or what it was about. Synthetic requests only. A tracking tool, not legal advice.
+
+### Referral tracker (web UI)
+
+The **Referrals** link tracks specialty referrals end to end: sent → scheduled → completed, or sent/scheduled → declined. Each referral records the patient, specialty, priority, reason, an optional diagnosis, and a dated history. The diagnostic value is catching the ones that stall: a referral still "sent" with nothing scheduled after the follow-up window (14 days by default, `HIM_REFERRAL_FOLLOWUP_DAYS` to change it, 1 to 90) is flagged "no response" in the list. Rules enforced: a referral cannot be marked completed until it is scheduled; a decline needs a written reason; closed referrals cannot be reopened. This is a standalone synthetic module — it is not read from, and does not reuse the schema of, any EHR's own referral or transaction table, OpenEMR's included; the follow-up window is a tracking setting, not a regulatory deadline like the ROI tracker's. Stored in `data/referrals.db` on this computer (gitignored). Synthetic referrals only.
 
 ### Web UI (optional)
 

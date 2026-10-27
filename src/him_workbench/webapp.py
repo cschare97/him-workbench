@@ -24,6 +24,8 @@ from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
 from . import roi as roi_mod
 from .roi import RoiError, RoiStore
+from . import referrals as referrals_mod
+from .referrals import ReferralError, ReferralStore
 from datetime import date
 import re
 
@@ -48,11 +50,13 @@ def _host_ok(value: str | None) -> bool:
 def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
                models_lister=None, drugs=None, education=None, patient_source: str = "",
-               chart_files: dict | None = None, roi_store: RoiStore | None = None, today=None) -> Flask:
+               chart_files: dict | None = None, roi_store: RoiStore | None = None,
+               referral_store: ReferralStore | None = None, today=None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
     roi = roi_store or RoiStore(":memory:")
+    referrals = referral_store or ReferralStore(":memory:")
     get_today = today or date.today
     patients = patients or []
     by_id = {p.id: p for p in patients}
@@ -255,6 +259,54 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     def roi_extend(rid):
         d = request.get_json(silent=True) or {}
         return _roi_json(lambda: roi.extend(rid, d.get("reason"), today=get_today()))
+
+    # ---- specialty referrals ----
+    @app.get("/referrals")
+    def referrals_page():
+        status = request.args.get("status", "")
+        t = get_today()
+        rows = referrals.list(status or None, today=t)
+        return render_template("referrals.html", active=None, nav="referrals", page_title="Referrals", rows=rows,
+                               today=t, summary=referrals.summary(t), status=status, name_of=name_of,
+                               statuses=referrals_mod.LABELS, priorities=referrals_mod.PRIORITIES,
+                               days=referrals.followup_days, patients=patients[:300], have_patients=bool(patients))
+
+    @app.get("/referrals/<int:rid>")
+    def referral_detail(rid):
+        q = referrals.get(rid)
+        if q is None:
+            abort(404)
+        t = get_today()
+        return render_template("referral_detail.html", active=None, nav="referrals", page_title=f"Referral {rid}",
+                               q=q, events=referrals.events(rid), today=t, name_of=name_of,
+                               labels=referrals_mod.LABELS, moves=referrals_mod.MOVES.get(q.status, ()))
+
+    def _ref_json(fn):
+        try:
+            fn()
+        except ReferralError as e:
+            return jsonify(error=str(e)), 400
+        return jsonify(ok=True)
+
+    @app.post("/referrals/new")
+    def referral_new():
+        d = request.get_json(silent=True) or {}
+        pid = str(d.get("patient_id", "")).strip()
+        if patients and pid not in by_id:
+            return jsonify(error="Pick a patient from the list. This tool only tracks the synthetic patients loaded."), 400
+        out = {}
+
+        def go():
+            out["id"] = referrals.create(pid, str(d.get("specialty", "")), str(d.get("priority", "")),
+                                         d.get("reason"), str(d.get("diagnosis", "")),
+                                         created=d.get("created") or None, today=get_today())
+        r = _ref_json(go)
+        return jsonify(ok=True, id=out["id"]) if out else r
+
+    @app.post("/referrals/<int:rid>/status")
+    def referral_status(rid):
+        d = request.get_json(silent=True) or {}
+        return _ref_json(lambda: referrals.set_status(rid, str(d.get("status", "")), d.get("note"), today=get_today()))
 
     @app.get("/audit")
     def audit_page():

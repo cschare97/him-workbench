@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+{% set st = q.state(today) %}
+<div class="page-head"><h1>Referral {{ q.id }}</h1><span class="meta">{{ labels[q.status] }}</span></div>
+<p><a href="/referrals">Back to all referrals</a></p>
+<table>
+  <tbody>
+    <tr><th>Patient</th><td>{{ name_of(q.patient_id) }}</td></tr>
+    <tr><th>Specialty</th><td>{{ q.specialty }}</td></tr>
+    <tr><th>Priority</th><td>{{ q.priority }}</td></tr>
+    <tr><th>Diagnosis</th><td>{{ q.diagnosis or '—' }}</td></tr>
+    <tr><th>Reason</th><td>{{ q.reason }}</td></tr>
+    <tr><th>Sent</th><td class="mono">{{ q.created }}</td></tr>
+    <tr><th>Flag</th><td class="{{ 'warn' if st == 'no response' else '' }}">{% if st == 'closed' %}closed{% elif st == 'no response' %}<strong>no response in {{ q.days_since_update(today) }} days</strong>{% elif st == 'scheduled' %}scheduled{% else %}on track{% endif %}</td></tr>
+  </tbody>
+</table>
+
+{% if moves %}
+<h3>Next step</h3>
+<form class="ref-form" data-ref="/referrals/{{ q.id }}/status" autocomplete="off">
+  <label>Move to
+    <select name="status">{% for m in moves %}<option value="{{ m }}">{{ labels[m] }}</option>{% endfor %}</select>
+  </label>
+  <label>Note (required when declining: say why)
+    <input name="note" maxlength="300">
+  </label>
+  <button type="submit">Save</button>
+  <span class="ref-msg warn" role="alert"></span>
+</form>
+<p class="dim">A referral cannot be completed until an appointment is scheduled.</p>
+{% endif %}
+
+<h3>History</h3>
+<table>
+  <thead><tr><th>Date</th><th>What happened</th><th>Note</th></tr></thead>
+  <tbody>{% for e in events %}<tr><td class="mono">{{ e.on }}</td><td>{{ e.what }}</td><td>{{ e.note }}</td></tr>{% endfor %}</tbody>
+</table>
+<script src="{{ url_for('static', filename='referrals.js') }}"></script>
+{% endblock %}

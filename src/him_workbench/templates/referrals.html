@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Referrals</h1><span class="meta">{{ summary.open }} open, {{ summary.no_response }} no response, {{ summary.scheduled }} scheduled</span></div>
+<p class="lede">Specialty referrals logged outside any EHR's own referral table (synthetic only). The point is catching the ones that stall: sent with nothing scheduled after {{ days }} days gets flagged "no response." Not tied to any regulatory deadline&mdash;{{ days }} is a setting.</p>
+
+<h3>Log a referral</h3>
+<form class="ref-form" data-ref="/referrals/new" autocomplete="off">
+  <label>Patient
+    {% if have_patients %}
+    <select name="patient_id" required>{% for p in patients %}<option value="{{ p.id }}">{{ p.first }} {{ p.last }} ({{ p.dob }})</option>{% endfor %}</select>
+    {% else %}<input name="patient_id" maxlength="60" required>{% endif %}
+  </label>
+  <label>Specialty
+    <input name="specialty" maxlength="100" required placeholder="e.g. Cardiology">
+  </label>
+  <label>Priority
+    <select name="priority" required>{% for p in priorities %}<option>{{ p }}</option>{% endfor %}</select>
+  </label>
+  <label>Diagnosis
+    <input name="diagnosis" maxlength="300" placeholder="e.g. Palpitations">
+  </label>
+  <label style="grid-column: 1 / -1">Reason for referral
+    <textarea name="reason" maxlength="300" required placeholder="Evaluation of intermittent palpitations"></textarea>
+  </label>
+  <button type="submit">Log referral</button>
+  <span class="ref-msg warn" role="alert"></span>
+</form>
+
+<h3>Referrals</h3>
+<p>
+  <a href="/referrals" {% if not status %}aria-current="true"{% endif %}>All</a>
+  {% for key, label in statuses.items() %} · <a href="/referrals?status={{ key }}" {% if status == key %}aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+</p>
+{% if not rows %}
+<p class="empty">No referrals{% if status %} with that status{% endif %}. Log one above.</p>
+{% else %}
+<table>
+  <thead><tr><th>#</th><th>Patient</th><th>Specialty</th><th>Priority</th><th>Diagnosis</th><th>Sent</th><th>Status</th><th>Flag</th></tr></thead>
+  <tbody>
+  {% for q in rows %}
+    {% set st = q.state(today) %}
+    <tr>
+      <td class="num"><a href="/referrals/{{ q.id }}">{{ q.id }}</a></td>
+      <td>{{ name_of(q.patient_id) }}</td>
+      <td>{{ q.specialty }}</td>
+      <td>{{ q.priority }}</td>
+      <td>{{ q.diagnosis or '—' }}</td>
+      <td class="mono">{{ q.created }}</td>
+      <td>{{ statuses[q.status] }}</td>
+      <td class="{{ 'warn' if st == 'no response' else '' }}">{% if st == 'closed' %}<span class="dim">closed</span>{% elif st == 'no response' %}<strong>no response in {{ q.days_since_update(today) }} days</strong>{% elif st == 'scheduled' %}scheduled{% else %}on track{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<script src="{{ url_for('static', filename='referrals.js') }}"></script>
+{% endblock %}
