@@ -22,6 +22,9 @@ from .icd10 import ICD10Index, find_code_in_text, real_words
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
+from . import roi as roi_mod
+from .roi import RoiError, RoiStore
+from datetime import date
 import re
 
 from .medlineplus import ATTRIBUTION as EDU_ATTRIBUTION, MedlinePlusError
@@ -45,10 +48,12 @@ def _host_ok(value: str | None) -> bool:
 def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
                models_lister=None, drugs=None, education=None, patient_source: str = "",
-               chart_files: dict | None = None) -> Flask:
+               chart_files: dict | None = None, roi_store: RoiStore | None = None, today=None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
+    roi = roi_store or RoiStore(":memory:")
+    get_today = today or date.today
     patients = patients or []
     by_id = {p.id: p for p in patients}
     chat_factory = chat_factory or ollama_chat
@@ -197,6 +202,59 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                            maybe=icd.did_you_mean(q))
         return render_template("codes.html", active="codes", page_title="Codes", source=icd.source if icd else "",
                                **ctx)
+
+
+    # ---- release of information requests ----
+    @app.get("/roi")
+    def roi_page():
+        status = request.args.get("status", "")
+        t = get_today()
+        rows = roi.list(status or None)
+        return render_template("roi.html", active=None, nav="roi", page_title="ROI requests", rows=rows, today=t,
+                               summary=roi.summary(t), status=status, name_of=name_of, statuses=roi_mod.LABELS,
+                               types=roi_mod.REQUESTER_TYPES, days=roi.days, patients=patients[:300],
+                               have_patients=bool(patients), today_iso=t.isoformat())
+
+    @app.get("/roi/<int:rid>")
+    def roi_detail(rid):
+        q = roi.get(rid)
+        if q is None:
+            abort(404)
+        t = get_today()
+        return render_template("roi_detail.html", active=None, nav="roi", page_title=f"ROI request {rid}", q=q,
+                               events=roi.events(rid), today=t, name_of=name_of, labels=roi_mod.LABELS,
+                               moves=roi_mod.MOVES.get(q.status, ()), days=roi.days)
+
+    def _roi_json(fn):
+        try:
+            fn()
+        except RoiError as e:
+            return jsonify(error=str(e)), 400
+        return jsonify(ok=True)
+
+    @app.post("/roi/new")
+    def roi_new():
+        d = request.get_json(silent=True) or {}
+        pid = str(d.get("patient_id", "")).strip()
+        if patients and pid not in by_id:
+            return jsonify(error="Pick a patient from the list. This tool only tracks the synthetic patients loaded."), 400
+        out = {}
+
+        def go():
+            out["id"] = roi.create(pid, str(d.get("requester_type", "")), d.get("summary"),
+                                   str(d.get("received") or get_today().isoformat()), today=get_today())
+        r = _roi_json(go)
+        return jsonify(ok=True, id=out["id"]) if out else r
+
+    @app.post("/roi/<int:rid>/status")
+    def roi_status(rid):
+        d = request.get_json(silent=True) or {}
+        return _roi_json(lambda: roi.set_status(rid, str(d.get("status", "")), d.get("note"), today=get_today()))
+
+    @app.post("/roi/<int:rid>/extend")
+    def roi_extend(rid):
+        d = request.get_json(silent=True) or {}
+        return _roi_json(lambda: roi.extend(rid, d.get("reason"), today=get_today()))
 
     @app.get("/audit")
     def audit_page():

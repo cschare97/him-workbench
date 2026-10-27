@@ -253,3 +253,10 @@ button.quiet:hover { border-color: var(--teal); filter: none; }
   .answer-cols section + section { border-left: 0; border-top: 1px solid var(--hair); }
 }
 @media (prefers-reduced-motion: reduce) { .answer { animation: none; } }
+
+/* ROI requests */
+.roi-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 14px; align-items: end; max-width: 900px; margin: 8px 0 14px; }
+.roi-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--jelly); }
+.roi-form input, .roi-form select { height: 34px; }
+.roi-form .roi-msg { grid-column: 1 / -1; min-height: 1em; }
+td.mono { white-space: nowrap; }

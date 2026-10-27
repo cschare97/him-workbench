@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>ROI requests</h1><span class="meta">{{ summary.open }} open, {{ summary.overdue }} overdue, {{ summary.due_soon }} due within 7 days</span></div>
+<p class="lede">Release of information: someone asks for a patient's records, and the clinic has to verify who they are and answer by a deadline. Deadline here: {{ days }} calendar days from the day received (a setting; state rules can be shorter). Synthetic requests only. Not legal advice.</p>
+
+<h3>Log a request</h3>
+<form class="roi-form" data-roi="/roi/new" autocomplete="off">
+  <label>Patient
+    {% if have_patients %}
+    <select name="patient_id" required>{% for p in patients %}<option value="{{ p.id }}">{{ p.first }} {{ p.last }} ({{ p.dob }})</option>{% endfor %}</select>
+    {% else %}<input name="patient_id" maxlength="60" required>{% endif %}
+  </label>
+  <label>Who is asking
+    <select name="requester_type" required>{% for t in types %}<option>{{ t }}</option>{% endfor %}</select>
+  </label>
+  <label>What was requested
+    <input name="summary" maxlength="300" required placeholder="e.g. visit notes and lab results, 2023 to 2025">
+  </label>
+  <label>Date received
+    <input name="received" type="date" value="{{ today_iso }}" max="{{ today_iso }}" required>
+  </label>
+  <button type="submit">Log request</button>
+  <span class="roi-msg warn" role="alert"></span>
+</form>
+
+<h3>Requests</h3>
+<p>
+  <a href="/roi" {% if not status %}aria-current="true"{% endif %}>All</a>
+  {% for key, label in statuses.items() %} · <a href="/roi?status={{ key }}" {% if status == key %}aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+</p>
+{% if not rows %}
+<p class="empty">No requests{% if status %} with that status{% endif %}. Log one above.</p>
+{% else %}
+<table>
+  <thead><tr><th>#</th><th>Patient</th><th>Who is asking</th><th>Requested</th><th>Received</th><th>Due</th><th>Status</th><th>Deadline</th></tr></thead>
+  <tbody>
+  {% for q in rows %}
+    {% set st = q.state(today) %}
+    <tr>
+      <td class="num"><a href="/roi/{{ q.id }}">{{ q.id }}</a></td>
+      <td>{{ name_of(q.patient_id) }}</td>
+      <td>{{ q.requester_type }}</td>
+      <td>{{ q.summary }}</td>
+      <td class="mono">{{ q.received }}</td>
+      <td class="mono">{{ q.due }}{% if q.extended %} (extended){% endif %}</td>
+      <td>{{ statuses[q.status] }}</td>
+      <td class="{{ 'warn' if st == 'overdue' else '' }}">{% if st == 'closed' %}<span class="dim">closed</span>{% elif st == 'overdue' %}<strong>overdue by {{ -q.days_left(today) }} day{{ '' if q.days_left(today) == -1 else 's' }}</strong>{% else %}{{ q.days_left(today) }} day{{ '' if q.days_left(today) == 1 else 's' }} left{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<script src="{{ url_for('static', filename='roi.js') }}"></script>
+{% endblock %}

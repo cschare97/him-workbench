@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+{% set st = q.state(today) %}
+<div class="page-head"><h1>ROI request {{ q.id }}</h1><span class="meta">{{ labels[q.status] }}</span></div>
+<p><a href="/roi">Back to all requests</a></p>
+<table>
+  <tbody>
+    <tr><th>Patient</th><td>{{ name_of(q.patient_id) }}</td></tr>
+    <tr><th>Who is asking</th><td>{{ q.requester_type }}</td></tr>
+    <tr><th>Requested</th><td>{{ q.summary }}</td></tr>
+    <tr><th>Received</th><td class="mono">{{ q.received }}</td></tr>
+    <tr><th>Due</th><td class="mono">{{ q.due }}{% if q.extended %} (extended once){% endif %}</td></tr>
+    <tr><th>Deadline</th><td class="{{ 'warn' if st == 'overdue' else '' }}">{% if st == 'closed' %}closed{% elif st == 'overdue' %}<strong>overdue by {{ -q.days_left(today) }} day{{ '' if q.days_left(today) == -1 else 's' }}</strong>{% else %}{{ q.days_left(today) }} day{{ '' if q.days_left(today) == 1 else 's' }} left{% endif %}</td></tr>
+  </tbody>
+</table>
+
+{% if moves %}
+<h3>Next step</h3>
+<form class="roi-form" data-roi="/roi/{{ q.id }}/status" autocomplete="off">
+  <label>Move to
+    <select name="status">{% for m in moves %}<option value="{{ m }}">{{ labels[m] }}</option>{% endfor %}</select>
+  </label>
+  <label>Note (required when denying: say why)
+    <input name="note" maxlength="300">
+  </label>
+  <button type="submit">Save</button>
+  <span class="roi-msg warn" role="alert"></span>
+</form>
+<p class="dim">A request cannot be fulfilled until it is verified (identity and authorization checked) and in progress.</p>
+{% if not q.extended %}
+<h3>Extend the deadline (once)</h3>
+<form class="roi-form" data-roi="/roi/{{ q.id }}/extend" autocomplete="off">
+  <label>Reason
+    <input name="reason" maxlength="300" required>
+  </label>
+  <button type="submit" class="quiet">Extend by 30 days</button>
+  <span class="roi-msg warn" role="alert"></span>
+</form>
+<p class="dim">Only one extension is allowed, and it has to be set on or before the due date.</p>
+{% endif %}
+{% endif %}
+
+<h3>History</h3>
+<table>
+  <thead><tr><th>Date</th><th>What happened</th><th>Note</th></tr></thead>
+  <tbody>{% for e in events %}<tr><td class="mono">{{ e.on }}</td><td>{{ e.what }}</td><td>{{ e.note }}</td></tr>{% endfor %}</tbody>
+</table>
+<script src="{{ url_for('static', filename='roi.js') }}"></script>
+{% endblock %}

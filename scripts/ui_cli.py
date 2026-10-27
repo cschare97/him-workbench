@@ -19,6 +19,7 @@ from him_workbench.data import find_icd_file, load_patients
 from him_workbench.icd10 import ICD10Index
 from him_workbench.chart import chart_files_from
 from him_workbench.medlineplus import MedlinePlusClient
+from him_workbench.roi import RoiStore
 from him_workbench.rxnorm import RxNormClient
 
 
@@ -54,7 +55,7 @@ def main() -> None:
         print("Disease education ON: codes and disease names you ask about are sent to NLM's MedlinePlus service.")
     chart_files = chart_files_from(args[args.index("--fhir") + 1]) if "--fhir" in args else {}
     create_app(icd=icd, patients=patients, model=model, drugs=drugs, education=education, patient_source=source,
-               chart_files=chart_files).run(host="127.0.0.1", port=port)
+               chart_files=chart_files, roi_store=RoiStore("data/roi.db")).run(host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":

@@ -150,6 +150,10 @@ With `--fhir` and a model chosen, the prompt bar on a patient's chart page says 
 
 `--fhir PATH` (on `ui_cli.py` and `assistant_cli.py`) reads FHIR Patient resources instead of the Synthea CSV: a single Patient, a Bundle, or NDJSON (as in the FHIR Bulk Data export), from a file or a whole folder. It runs locally and makes no network calls. It prints what it read and what it left out (deceased, no usable name, unreadable files). Mapping follows US Core Patient: official name first, `male`/`female` to M/F (`other` and `unknown` stay blank so they never count as a conflict), partial birth dates kept as written, `postalCode` kept as written.
 
+### ROI request tracker (web UI)
+
+The **ROI requests** link in the web UI tracks release-of-information requests: someone asks for a patient's records, the clinic checks who they are and whether they may see them, then answers inside a deadline. Each request records the patient (one of the loaded synthetic patients), who is asking, what was requested, the date received, the due date and a dated history. Rules the tracker enforces: a request cannot be fulfilled before it is verified; a denial needs a written reason; closed requests cannot be reopened; the deadline can be extended once, on or before the due date. Open requests show days left or days overdue. The deadline is 30 calendar days by default and one 30-day extension is allowed, which follows the [HHS page on the HIPAA right of access](https://www.hhs.gov/hipaa/for-professionals/faq/2053/in-some-cases-the-30-day-timeframe/index.html); state rules can be shorter, so set `HIM_ROI_DAYS` (1 to 90) for yours. Requests are stored in `data/roi.db` on this computer (gitignored). The audit log records that an action happened, never who or what it was about. Synthetic requests only. A tracking tool, not legal advice.
+
 ### Web UI (optional)
 
 ```
@@ -248,6 +252,18 @@ logs/                audit log (gitignored)
 
 - [Synthea](https://github.com/synthetichealth/synthea) synthetic patients (Apache 2.0).
 - ICD-10-CM code descriptions published by CDC/NCHS.
+
+## Credits
+
+This project builds on other people's work:
+
+- **Matching method:** the scoring approach follows Fellegi and Sunter, "A Theory of Record Linkage" (Journal of the American Statistical Association, 1969). Name similarity uses Jaro-Winkler.
+- **Synthetic patients:** [Synthea](https://github.com/synthetichealth/synthea), from The MITRE Corporation (Apache 2.0).
+- **Diagnosis codes:** ICD-10-CM, published by CDC/NCHS.
+- **Drug names and patient education:** the National Library of Medicine's RxNorm and MedlinePlus Connect services (both optional, off by default).
+- **Record format:** HL7 FHIR R4 and US Core.
+- **Inspiration:** the idea of a private, local-first assistant that runs on Ollama and logs what it does was inspired by [Jarvis](https://github.com/Salahasfan02/Jarvis) by Salah Asfan. This project shares no code with it.
+- **Local models:** [Ollama](https://ollama.com) and the open models it runs.
 
 ## License
 

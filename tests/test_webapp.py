@@ -263,3 +263,122 @@ def test_chart_page_shows_social_history_and_questionnaires(tmp_path):
     page = make(tmp_path, chart_files={"3": f}).test_client().get("/patients/3/chart", headers=HDR).data
     assert b"Social history" in page and b"Never smoker" in page
     assert b"Questionnaires and survey answers" in page and b"PHQ-9 total score" in page and b"3 {score}" in page
+
+
+def _roi_app(tmp_path):
+    from datetime import date
+    from him_workbench.roi import RoiStore
+    return make(tmp_path, roi_store=RoiStore(":memory:", days=30), today=lambda: date(2026, 10, 24))
+
+
+def test_roi_page_log_verify_and_refuse_out_of_order(tmp_path):
+    c = _roi_app(tmp_path).test_client()
+    page = c.get("/roi", headers=HDR).data
+    assert b"ROI requests" in page and b"Log a request" in page and b"Maria Okafor" in page
+    r = c.post("/roi/new", json={"patient_id": "3", "requester_type": "attorney", "summary": "visit notes",
+                                 "received": "2026-10-01"}, headers=HDR)
+    assert r.status_code == 200 and r.get_json()["id"] == 1
+    page = c.get("/roi", headers=HDR).data
+    assert b"2026-10-31" in page and b"Maria Okafor" in page and b"days left" in page
+    bad = c.post("/roi/1/status", json={"status": "fulfilled"}, headers=HDR)
+    assert bad.status_code == 400 and "verified" in bad.get_json()["error"]
+    assert c.post("/roi/1/status", json={"status": "verified", "note": "ID checked"}, headers=HDR).status_code == 200
+    detail = c.get("/roi/1", headers=HDR).data
+    assert b"ID checked" in detail and b"Verified" in detail
+
+
+def test_roi_rejects_unknown_patient_bad_input_and_non_json(tmp_path):
+    c = _roi_app(tmp_path).test_client()
+    r = c.post("/roi/new", json={"patient_id": "nope", "requester_type": "attorney", "summary": "x"}, headers=HDR)
+    assert r.status_code == 400 and "Pick a patient" in r.get_json()["error"]
+    r = c.post("/roi/new", json={"patient_id": "3", "requester_type": "attorney", "summary": ""}, headers=HDR)
+    assert r.status_code == 400
+    assert c.post("/roi/new", data="x=1", headers=HDR).status_code == 415
+    assert c.get("/roi/99", headers=HDR).status_code == 404
+
+
+def test_roi_overdue_is_shown_and_extension_works(tmp_path):
+    c = _roi_app(tmp_path).test_client()
+    c.post("/roi/new", json={"patient_id": "3", "requester_type": "insurer", "summary": "labs",
+                             "received": "2026-09-01"}, headers=HDR)
+    assert b"overdue by 23 days" in c.get("/roi", headers=HDR).data
+    assert c.post("/roi/1/extend", json={"reason": "late"}, headers=HDR).status_code == 400
+    c.post("/roi/new", json={"patient_id": "3", "requester_type": "insurer", "summary": "labs",
+                             "received": "2026-10-10"}, headers=HDR)
+    assert c.post("/roi/2/extend", json={"reason": "large record"}, headers=HDR).status_code == 200
+    assert b"extended" in c.get("/roi/2", headers=HDR).data
+
+
+# ---- security edge cases: these assert the app behaves correctly under adversarial-shaped input,
+# not that it fails. Written as ordinary pytest assertions, same as the rest of this file. ----
+
+def test_post_with_no_origin_header_still_requires_correct_host(client):
+    # The before_request guard only checks Origin when the header is present (webapp.py: "if origin and ...").
+    # A request with Host correct but Origin header absent entirely should pass the host/origin guard and
+    # reach the route handler (here failing later for an unrelated reason: the fake chat backend errors,
+    # which is a 502 from inside api_ask, proving the guard itself let the request through).
+    assert client.post("/api/ask", json={"question": "x"}, headers=HDR).status_code != 403
+    # Host wrong must still be refused regardless of Origin being present or absent.
+    assert client.post("/api/ask", json={"question": "x"},
+                       headers={"Host": "evil.example"}).status_code == 403
+
+
+@pytest.mark.parametrize("host", [
+    "127.0.0.1:5050@evil.example",   # userinfo-style prefix
+    "127.0.0.1.evil.example",         # subdomain-style suffix
+    "evil.example#127.0.0.1",
+    "evil.example\t127.0.0.1",
+    " 127.0.0.1",
+])
+def test_host_header_lookalikes_are_refused(client, host):
+    # _host_ok() must not be tricked into reading "127.0.0.1" out of a Host value that doesn't
+    # actually mean localhost. Every one of these should be refused, same as a plain wrong host.
+    assert client.get("/patients", headers={"Host": host}).status_code == 403
+
+
+@pytest.mark.parametrize("name", [
+    "..%2f..%2f..%2fetc%2fpasswd",
+    "../../../etc/passwd",
+    "....//....//etc/passwd",
+    "patients.jpg/../../../etc/passwd",
+])
+def test_local_texture_rejects_path_traversal_attempts(client, name):
+    r = client.get(f"/local-textures/{name}", headers=HDR)
+    assert r.status_code == 404
+
+
+def test_patient_name_with_markup_is_escaped_on_the_page(tmp_path):
+    # A patient name containing script-like or template-like text must render as inert text,
+    # not execute or interpolate. Confirms Jinja's autoescaping actually holds for this field.
+    tricky = Patient("9", "<script>alert(1)</script>", "{{7*7}}", "1990-01-01", "F", "00000")
+    app = create_app(patients=PTS + [tricky], model=None, texture_dir=tmp_path / "tex")
+    page = app.test_client().get("/patients", headers=HDR).data
+    assert b"<script>alert(1)</script>" not in page   # not rendered as live markup
+    assert b"49" not in page                            # not evaluated as a template expression
+    assert b"&lt;script&gt;" in page or b"&amp;lt;" in page or b"alert(1)" in page  # escaped, still visible as text
+
+
+def test_roi_summary_over_300_chars_is_refused_even_posted_directly(tmp_path):
+    # The 300-char limit in roi.py must be enforced server-side, not just via the form's maxlength
+    # attribute (which a direct POST bypasses entirely).
+    from datetime import date
+    from him_workbench.roi import RoiStore
+    app = make(tmp_path, roi_store=RoiStore(":memory:", days=30), today=lambda: date(2026, 10, 24))
+    c = app.test_client()
+    r = c.post("/roi/new", json={"patient_id": "3", "requester_type": "attorney",
+                                 "summary": "x" * 301, "received": "2026-10-01"}, headers=HDR)
+    assert r.status_code == 400
+
+
+def test_ask_question_over_500_chars_is_refused_even_posted_directly(client):
+    r = client.post("/api/ask", json={"question": "x" * 501}, headers=HDR)
+    assert r.status_code == 400
+
+
+def test_app_does_not_run_in_debug_mode():
+    # Werkzeug's interactive debugger (and its PIN-bypass history) must never be reachable.
+    # Read as text rather than imported: ui_cli.py is meant to run with scripts/ itself on
+    # sys.path (not as an importable package), so importing it here would fail for reasons
+    # unrelated to what this test checks.
+    src = (Path(__file__).parent.parent / "scripts" / "ui_cli.py").read_text()
+    assert "debug=True" not in src
