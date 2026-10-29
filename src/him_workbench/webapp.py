@@ -8,6 +8,7 @@ is on every page. The assistant box shows the model's answer next to the raw too
 from __future__ import annotations
 
 import json
+import secrets
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,14 +17,16 @@ from urllib.parse import urlparse
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory
 
 from . import audit
-from .assistant import Assistant, list_models, ollama_chat
+from .assistant import AGENT_PROFILES, Assistant, list_models, ollama_chat
 from .chart import clean, load_chart, active
 from .icd10 import ICD10Index, find_code_in_text, real_words
+from .hcpcs import HCPCSIndex, find_code_in_text as find_hcpcs_in_text
 from .matching import Patient, compare, find_duplicates
 from .quality import CHECK_LABELS, FIELDS, analyze
 from .render import result_lines
 from . import roi as roi_mod
 from .roi import RoiError, RoiStore
+from . import smart_fhir
 from . import referrals as referrals_mod
 from .referrals import ReferralError, ReferralStore
 from .docsearch import NoteIndex
@@ -35,12 +38,13 @@ import re
 from .medlineplus import ATTRIBUTION as EDU_ATTRIBUTION, MedlinePlusError
 from .rxnorm import ATTRIBUTION
 
-TEXTURE_NAMES = ("patients", "duplicates", "quality", "codes", "header")
+TEXTURE_NAMES = ("patients", "duplicates", "quality", "codes", "hcpcs", "header")
 TABS = [
     ("patients", "Patients", "/patients"),
     ("duplicates", "Duplicates", "/duplicates"),
     ("quality", "Data quality", "/quality"),
     ("codes", "Codes", "/codes"),
+    ("hcpcs", "HCPCS", "/hcpcs"),
 ]
 
 
@@ -50,7 +54,8 @@ def _host_ok(value: str | None) -> bool:
     return urlparse("//" + value).hostname in {"127.0.0.1", "localhost", "::1"}
 
 
-def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None = None,
+def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None,
+               patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
                models_lister=None, drugs=None, education=None, patient_source: str = "",
                chart_files: dict | None = None, roi_store: RoiStore | None = None,
@@ -74,6 +79,11 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     st.notes = NoteIndex(embed_fn=notes_embed)
     st.notes_built = False
     embed_model = default_embed_model()
+    # Live SMART on FHIR connection state. 'pending' holds a not-yet-completed launch's state/PKCE
+    # verifier while the browser is off at the sandbox's own authorize page; 'token'/'server'/
+    # 'patient_id' hold a completed connection. Single-user local tool, so one shared slot is enough
+    # (same pattern as st.model/st.bots above) rather than a per-session store.
+    st.smart = {"pending": None, "token": None, "server": "", "patient_id": "", "error": ""}
 
     def ensure_notes_index() -> None:
         if st.notes_built:
@@ -92,11 +102,19 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                 st.notes.build(gen())
                 st.notes_built = True
 
-    def new_bot() -> Assistant | None:
-        return (Assistant(chat_factory(st.model), icd=icd, patients=patients, drugs=drugs, education=education,
-                         charts=chart_files) if st.model else None)
+    def new_bot(profile: str) -> Assistant | None:
+        return (Assistant(chat_factory(st.model), icd=icd, hcpcs=hcpcs, patients=patients, drugs=drugs,
+                         education=education, charts=chart_files, profile=profile) if st.model else None)
 
-    st.bot = new_bot()
+    # One Assistant per agent profile, each with its own tool set, system prompt, and conversation
+    # history — so asking the "Codes" agent something doesn't carry state into the "Duplicates"
+    # agent, and vice versa. Built lazily so an unused profile never calls Ollama for nothing.
+    st.bots: dict[str, Assistant] = {}
+
+    def get_bot(profile: str) -> Assistant | None:
+        if profile not in st.bots:
+            st.bots[profile] = new_bot(profile)
+        return st.bots[profile]
 
     # ---- safety: local only, JSON only ----
     @app.before_request
@@ -128,9 +146,20 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
             "quality": (f"{sum(1 for v in st.quality.problems.values() if v)} checks flagged"
                         if st.quality else "no data"),
             "codes": f"ICD-10-CM {icd.year}" if icd and icd.year else "ICD-10-CM",
+            "hcpcs": f"HCPCS Level II {hcpcs.year}" if hcpcs and hcpcs.year else "HCPCS Level II",
         }
+        agents = [("general", AGENT_PROFILES["general"]["label"])]
+        if icd or hcpcs:
+            agents.append(("codes", AGENT_PROFILES["codes"]["label"]))
+        if patients:
+            agents.append(("duplicates", AGENT_PROFILES["duplicates"]["label"]))
+        if drugs or education:
+            agents.append(("drugs_education", AGENT_PROFILES["drugs_education"]["label"]))
+        if chart_files:
+            agents.append(("chart", AGENT_PROFILES["chart"]["label"]))
         return {"model": st.model, "drugs_on": drugs is not None, "attribution": ATTRIBUTION,
-                "education_on": education is not None, "edu_attribution": EDU_ATTRIBUTION, "tabs": TABS, "tab_counts": counts, "local_textures": local}
+                "education_on": education is not None, "edu_attribution": EDU_ATTRIBUTION, "tabs": TABS,
+                "tab_counts": counts, "local_textures": local, "agents": agents}
 
     def name_of(pid: str) -> str:
         p = by_id.get(pid)
@@ -229,6 +258,23 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                            maybe=icd.did_you_mean(q))
         return render_template("codes.html", active="codes", page_title="Codes", source=icd.source if icd else "",
                                **ctx)
+
+    @app.get("/hcpcs")
+    def hcpcs_page():
+        q = request.args.get("q", "").strip()
+        ctx = {"q": q, "results": [], "total": 0, "ignored": [], "lookup": None, "unmatched": [], "maybe": {},
+               "loaded": hcpcs is not None}
+        if hcpcs and q:
+            code = find_hcpcs_in_text(q)
+            found = hcpcs.describe(code) if code else None
+            if found and found["status"] != "unknown":
+                ctx["lookup"] = found
+            else:
+                results, ignored, total = hcpcs.search_detail(q, limit=25)
+                ctx.update(results=results, ignored=ignored, total=total, unmatched=real_words(ignored),
+                           maybe=hcpcs.did_you_mean(q))
+        return render_template("hcpcs.html", active="hcpcs", page_title="HCPCS", nav="hcpcs",
+                               source=hcpcs.source if hcpcs else "", **ctx)
 
 
     # ---- release of information requests ----
@@ -390,23 +436,113 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
             abort(404)
         return send_from_directory(texture_dir.resolve(), name)
 
+    # ---- SMART on FHIR (live sandbox, read-only) ----
+    @app.get("/smart")
+    def smart_page():
+        patient, chart, problem = None, None, ""
+        if st.smart["token"] and st.smart["patient_id"]:
+            try:
+                patient, chart = smart_fhir.fetch_chart(st.smart["server"], st.smart["patient_id"],
+                                                        st.smart["token"])
+            except smart_fhir.SmartError as exc:
+                problem = f"Connected, but could not read the chart: {exc}"
+        return render_template("smart.html", active=None, nav="smart", page_title="SMART on FHIR",
+                               connected=bool(st.smart["token"]), server=st.smart["server"] or smart_fhir.iss(),
+                               default_server=smart_fhir.iss(), client_id=smart_fhir.client_id(),
+                               patient=patient, chart=chart, problem=problem, error=st.smart["error"],
+                               act=active(chart.problems) if chart else [],
+                               past=[x for x in chart.problems if x.status != "active"] if chart else [])
+
+    @app.get("/smart/connect")
+    def smart_connect():
+        server = smart_fhir.iss()
+        try:
+            endpoints = smart_fhir.discover(server)
+        except smart_fhir.SmartError as exc:
+            with lock:
+                st.smart["error"] = f"Could not start the connection: {exc}"
+            return redirect("/smart")
+        verifier, challenge = smart_fhir.new_pkce()
+        state = secrets.token_urlsafe(24)
+        redirect_uri = request.url_root.rstrip("/") + "/smart/callback"
+        with lock:
+            st.smart["pending"] = {"state": state, "verifier": verifier, "server": server,
+                                   "token_endpoint": endpoints["token_endpoint"], "redirect_uri": redirect_uri}
+            st.smart["error"] = ""
+        url = smart_fhir.authorize_url(endpoints["authorization_endpoint"], server=server,
+                                       cid=smart_fhir.client_id(), redirect_uri=redirect_uri,
+                                       state=state, code_challenge=challenge)
+        return redirect(url)
+
+    @app.get("/smart/callback")
+    def smart_callback():
+        pending = st.smart["pending"]
+        err = request.args.get("error")
+        if err:
+            with lock:
+                st.smart["error"] = f"The sandbox declined the launch: {err} — " + request.args.get(
+                    "error_description", "(no further detail given)")
+                st.smart["pending"] = None
+            return redirect("/smart")
+        if not pending or request.args.get("state") != pending["state"]:
+            with lock:
+                st.smart["error"] = "This connection attempt expired or did not match. Try connecting again."
+                st.smart["pending"] = None
+            return redirect("/smart")
+        code = request.args.get("code")
+        if not code:
+            with lock:
+                st.smart["error"] = "The sandbox did not return an authorization code."
+                st.smart["pending"] = None
+            return redirect("/smart")
+        try:
+            token = smart_fhir.exchange_code(pending["token_endpoint"], code=code,
+                                             redirect_uri=pending["redirect_uri"], cid=smart_fhir.client_id(),
+                                             code_verifier=pending["verifier"])
+        except smart_fhir.SmartError as exc:
+            with lock:
+                st.smart["error"] = str(exc)
+                st.smart["pending"] = None
+            return redirect("/smart")
+        patient_id = token.get("patient")
+        with lock:
+            if not patient_id:
+                st.smart["error"] = ("Connected, but the sandbox did not hand back a patient — pick one "
+                                     "when the sandbox prompts you, then try connecting again.")
+            else:
+                st.smart["token"], st.smart["server"] = token.get("access_token"), pending["server"]
+                st.smart["patient_id"], st.smart["error"] = patient_id, ""
+            st.smart["pending"] = None
+        return redirect("/smart")
+
+    @app.post("/smart/disconnect")
+    def smart_disconnect():
+        with lock:
+            st.smart.update(pending=None, token=None, server="", patient_id="", error="")
+        return jsonify(ok=True)
+
     # ---- assistant ----
     @app.post("/api/ask")
     def api_ask():
         body = request.get_json(silent=True) or {}
         question = str(body.get("question", "")).strip()
         patient_id = body.get("patient_id")
+        agent = str(body.get("agent") or "general")
+        if agent not in AGENT_PROFILES:
+            return jsonify(error="Not a known agent."), 400
         if patient_id is not None and (not isinstance(patient_id, str) or patient_id not in by_id):
             return jsonify(error="That patient is not in the loaded list."), 400
         if not question:
             return jsonify(error="Type a question first."), 400
         if len(question) > 500:
             return jsonify(error="Keep questions under 500 characters."), 400
-        if st.bot is None:
+        if st.model is None:
             return jsonify(error="No model selected. Choose one under Models."), 409
         calls: list[dict] = []
         with lock:
-            bot = st.bot
+            bot = get_bot(agent)
+            if bot is None:
+                return jsonify(error="No model selected. Choose one under Models."), 409
             bot.on_tool = lambda n, a: calls.append({"tool": n, "args": a, "headline": "", "lines": []})
             def _res(n, r):
                 head, lines = result_lines(n, r)
@@ -417,12 +553,12 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                 answer = bot.ask(question, patient_id=patient_id)
             except Exception as exc:
                 return jsonify(error=f"The model did not answer ({type(exc).__name__}). Is Ollama running?"), 502
-        return jsonify(answer=answer, calls=calls, model=st.model)
+        return jsonify(answer=answer, calls=calls, model=st.model, agent=agent)
 
     @app.post("/api/reset")
     def api_reset():
         with lock:
-            st.bot = new_bot()
+            st.bots = {}
         return jsonify(ok=True)
 
     @app.post("/api/model")
@@ -432,7 +568,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
             return jsonify(error="No model given."), 400
         with lock:
             st.model = name
-            st.bot = new_bot()
+            st.bots = {}
         return jsonify(ok=True, model=name)
 
     return app

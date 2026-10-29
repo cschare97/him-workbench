@@ -5,6 +5,7 @@ import pytest
 from him_workbench import audit
 from him_workbench.assistant import Assistant
 from him_workbench.icd10 import ICD10Index
+from him_workbench.hcpcs import HCPCSIndex
 from him_workbench.matching import Patient
 
 
@@ -18,6 +19,13 @@ def icd(tmp_path):
     p = tmp_path / "icd10cm_codes_2099.txt"
     p.write_text("A000    Test condition alpha\nA001    Test condition beta\n")
     return ICD10Index.from_file(p)
+
+
+@pytest.fixture
+def hcpcs(tmp_path):
+    p = tmp_path / "hcpc2099_anweb.txt"
+    p.write_text("E0100   Test cane, with tip\nK0001   Test wheelchair, standard\n")
+    return HCPCSIndex.from_file(p)
 
 
 def scripted(*replies):
@@ -45,6 +53,24 @@ def test_made_up_code_is_flagged(icd):
     bot = Assistant(scripted(say("The code is Z99.89.")), icd=icd)
     out = bot.ask("what code?")
     assert "Not returned by a lookup" in out and "Z99.89" in out
+
+
+def test_hcpcs_tool_call_then_grounded_answer(hcpcs):
+    bot = Assistant(scripted(call("search_hcpcs", query="cane"), say("E0100 is a cane with tip.")), hcpcs=hcpcs)
+    out = bot.ask("find a cane code")
+    assert out == "E0100 is a cane with tip."          # no warning: code came from a tool
+
+
+def test_made_up_hcpcs_code_is_flagged(hcpcs):
+    bot = Assistant(scripted(say("Use code K9999 for that.")), hcpcs=hcpcs)
+    out = bot.ask("what code?")
+    assert "Not returned by a lookup" in out and "K9999" in out
+
+
+def test_hcpcs_tool_not_loaded_is_an_error_not_a_guess(icd):
+    bot = Assistant(scripted(call("search_hcpcs", query="cane"), say("no HCPCS loaded")), icd=icd)
+    bot.ask("find a cane code")
+    assert any("HCPCS file not loaded" in m.get("content", "") for m in bot.messages if m["role"] == "tool")
 
 
 def test_string_arguments_and_unknown_tool_do_not_crash(icd):
@@ -273,3 +299,52 @@ def test_model_swapping_a_misspelled_word_is_blocked(tmp_path):
     bot2 = Assistant(scripted(call("search_icd10", query="spondylosis"), say("ok")), icd=ICD10Index.from_file(p))
     bot2.ask("code for spondylosis")
     assert "M47.9" in [m for m in bot2.messages if m["role"] == "tool"][0]["content"]
+
+
+# ---- narrow-job agent profiles ----
+
+def test_unknown_profile_is_rejected(icd):
+    with pytest.raises(ValueError):
+        Assistant(scripted(say("x")), icd=icd, profile="not-a-real-profile")
+
+
+def test_codes_profile_only_offers_code_tools(icd, hcpcs):
+    bot = Assistant(scripted(say("x")), icd=icd, hcpcs=hcpcs,
+                    patients=[Patient(id="1", first="A", last="B", dob="2000-01-01", sex="F", zip="00000")],
+                    profile="codes")
+    names = {t["function"]["name"] for t in bot.tools}
+    assert names == {"search_icd10", "lookup_icd10", "search_hcpcs", "lookup_hcpcs"}
+    # the prompt says up front it has no other tools, but never instructs it how to *use* duplicates/drugs/etc.
+    assert "scan_duplicates" not in bot.messages[0]["content"]
+    assert "cannot check duplicates" in bot.messages[0]["content"]
+
+
+def test_duplicates_profile_only_offers_duplicate_tools(icd):
+    patients = [Patient(id="1", first="A", last="B", dob="2000-01-01", sex="F", zip="00000"),
+                Patient(id="2", first="A", last="B", dob="2000-01-01", sex="F", zip="00000")]
+    bot = Assistant(scripted(say("x")), icd=icd, patients=patients, profile="duplicates")
+    names = {t["function"]["name"] for t in bot.tools}
+    assert names == {"scan_duplicates", "data_quality_report", "compare_patients"}
+
+
+def test_codes_profile_still_does_the_actual_lookup(icd):
+    bot = Assistant(scripted(call("search_icd10", query="alpha"), say("A00.0 is test condition alpha.")),
+                    icd=icd, profile="codes")
+    out = bot.ask("find alpha")
+    assert out == "A00.0 is test condition alpha."
+
+
+def test_duplicates_profile_cannot_reach_code_tools(icd):
+    # the real-tool-calling model only ever sees the tools listed in bot.tools, but run_tool itself still
+    # dispatches by name for any caller — so a narrow profile's own loop staying off the other domain's
+    # tools is what actually enforces the split, not a runtime block. Confirm the tool is simply absent.
+    bot = Assistant(scripted(say("x")), icd=icd, profile="duplicates")
+    assert not any(t["function"]["name"] == "search_icd10" for t in bot.tools)
+
+
+def test_general_profile_is_unchanged_default(icd, hcpcs):
+    bot = Assistant(scripted(say("x")), icd=icd, hcpcs=hcpcs)
+    assert bot.profile == "general"
+    names = {t["function"]["name"] for t in bot.tools}
+    assert {"search_icd10", "search_hcpcs", "scan_duplicates", "data_quality_report",
+            "compare_patients"} <= names

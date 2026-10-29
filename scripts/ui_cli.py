@@ -8,6 +8,7 @@
                    also turns on Document search: a generated note per patient, searched by meaning via
                    a local Ollama embedding model (ollama pull nomic-embed-text; HIM_EMBED_MODEL to change it)
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
+  HCPCS Level II loads automatically from data/hcpcs if present (./scripts/fetch_hcpcs.sh)
 
 Binds to 127.0.0.1 only. Synthetic data only. The model is optional: without one, every page
 works and only the prompt bar says to pick a model.
@@ -17,8 +18,9 @@ import os
 import sys
 
 from assistant_cli import with_demo_dups
-from him_workbench.data import find_icd_file, load_patients
+from him_workbench.data import find_hcpcs_file, find_icd_file, load_patients
 from him_workbench.icd10 import ICD10Index
+from him_workbench.hcpcs import HCPCSIndex
 from him_workbench.chart import chart_files_from
 from him_workbench.medlineplus import MedlinePlusClient
 from him_workbench.roi import RoiStore
@@ -41,6 +43,13 @@ def main() -> None:
 
     icd_path = find_icd_file()
     icd = ICD10Index.from_file(icd_path) if icd_path else None
+    hcpcs_path = find_hcpcs_file()
+    hcpcs = None
+    if hcpcs_path:
+        try:
+            hcpcs = HCPCSIndex.from_file(hcpcs_path)
+        except ValueError as exc:
+            print(f"HCPCS file found but could not be read, continuing without it: {exc}")
     patients, source = load_patients(args)
     if "--demo-dups" in args and patients:
         before = len(patients)
@@ -48,7 +57,8 @@ def main() -> None:
         added = len(patients) - before
         source += f"; plus {added} demo duplicates added (ids start with dup-)"
         print(f"({added} synthetic duplicates injected; their ids start with 'dup-')")
-    print(f"ICD-10: {icd.source if icd else 'NOT LOADED'} | patients: {len(patients)} | model: {model or 'none'}")
+    print(f"ICD-10: {icd.source if icd else 'NOT LOADED'} | HCPCS: {hcpcs.source if hcpcs else 'NOT LOADED'} "
+          f"| patients: {len(patients)} | model: {model or 'none'}")
     print(f"Open http://127.0.0.1:{port}   (Ctrl+C to stop)")
     drugs = RxNormClient() if "--drugs" in args else None
     if drugs:
@@ -57,7 +67,7 @@ def main() -> None:
     if education:
         print("Disease education ON: codes and disease names you ask about are sent to NLM's MedlinePlus service.")
     chart_files = chart_files_from(args[args.index("--fhir") + 1]) if "--fhir" in args else {}
-    create_app(icd=icd, patients=patients, model=model, drugs=drugs, education=education, patient_source=source,
+    create_app(icd=icd, hcpcs=hcpcs, patients=patients, model=model, drugs=drugs, education=education, patient_source=source,
                chart_files=chart_files, roi_store=RoiStore("data/roi.db"),
                referral_store=ReferralStore("data/referrals.db")).run(host="127.0.0.1", port=port)
 

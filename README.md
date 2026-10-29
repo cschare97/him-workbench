@@ -1,6 +1,6 @@
 # HIM Workbench
 
-Local-first tools for Health Information Management (HIM) work: find possible duplicate patient records, look up ICD-10-CM codes, and ask about both in plain English through a model running on your own machine.
+Local-first tools for Health Information Management (HIM) work: find possible duplicate patient records, look up ICD-10-CM and HCPCS Level II codes, and ask about both in plain English through a model running on your own machine.
 
 **Synthetic data only. Not for clinical use, billing, or coding decisions.** This is a learning and portfolio project. Nothing here has been validated for real patient data.
 
@@ -10,8 +10,10 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 |---|---|
 | Duplicate matcher | Scores pairs of patient records and labels each `match`, `review`, or `non-match`. Says why when it holds a pair back for a person to look at. |
 | ICD-10-CM lookup | Looks up a code, or searches by plain-English text ("type 2 diabetes kidney"). Reads the public CDC/NCHS code file; the file is not bundled. |
-| Assistant | A local Ollama model that answers by calling the two tools above. Every tool result is printed raw, so you can check the model's retelling against the source. |
+| HCPCS Level II lookup | Same idea for supplies, DME, ambulance, and other non-CPT services ("wheelchair" -> E0100-range codes). Reads the public CMS alpha-numeric file; the file is not bundled. No CPT. |
+| Assistant | A local Ollama model that answers by calling the tools above. Every tool result is printed raw, so you can check the model's retelling against the source. A dropdown next to the prompt bar picks a narrower, single-purpose agent instead of the default do-everything one — see "Narrow-job agents" below. |
 | Data-quality report | Counts missing values and format problems (impossible dates, malformed zips, odd names) and exact same-name-and-birth-date groups. Counts only, never patient values. |
+| SMART on FHIR (live, optional) | Connects to a public SMART on FHIR sandbox over a real OAuth2 App Launch (PKCE), pulls one live synthetic test patient, and shows their chart. Read-only. See "SMART on FHIR" below. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
 
 ## Principles
@@ -42,6 +44,7 @@ flowchart TB
         match["matching.py<br/>duplicate matcher"]
         qual["quality.py<br/>data quality"]
         icd["icd10.py<br/>code search + did-you-mean"]
+        hcpcs["hcpcs.py<br/>HCPCS Level II search"]
         load["data.py, fhir.py<br/>patient loaders"]
         chart["chart.py<br/>FHIR patient chart"]
         roi["roi.py<br/>ROI request tracker"]
@@ -64,6 +67,7 @@ flowchart TB
     subgraph data["Local data: data/ (gitignored)"]
         syn[("Synthea patients<br/>CSV or FHIR")]
         codes[("ICD-10-CM codes<br/>CDC file")]
+        hcpcsfile[("HCPCS Level II codes<br/>CMS file")]
         roidb[("ROI requests<br/>SQLite: roi.db")]
         refdb[("Referrals<br/>SQLite: referrals.db")]
     end
@@ -85,6 +89,7 @@ flowchart TB
     load --> qual
     load --> chart
     icd -->|reads| codes
+    hcpcs -->|reads| hcpcsfile
     roi -->|reads/writes| roidb
     ref -->|reads/writes| refdb
     notes -->|reads| chart
@@ -97,6 +102,20 @@ flowchart TB
 - The ICD-10 search suggests close words for a misspelled term instead of silently searching a different one; the model is never allowed to swap a word in on its own.
 - The web UI's tabs (Patients, Duplicates, Data quality, Codes), the ROI request tracker, the referral tracker, and document search call the core modules directly, with no chat model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
 - Document search does not call the chat model to create anything: a note's text is templated from a patient's own already-loaded chart data, and only the embedding model (a separate, smaller local model) is used, purely to rank notes by meaning. No record is ever created from a model's output — same reasoning as keeping ROI and referral logging form-only.
+
+### Narrow-job agents
+
+The assistant isn't one fixed personality — `assistant.py` defines a handful of agent *profiles*, each a trimmed system prompt paired with only the tools for its own job:
+
+| Agent | Tools it has | Tools it doesn't have |
+|---|---|---|
+| General (default) | everything below | — |
+| Codes | `search_icd10`, `lookup_icd10`, `search_hcpcs`, `lookup_hcpcs` | duplicates, drugs, education, charts |
+| Duplicates & data quality | `scan_duplicates`, `data_quality_report`, `compare_patients` | codes, drugs, education, charts |
+| Drugs & patient education | `search_drug`, `disease_education` | codes, duplicates, charts |
+| Patient chart | `patient_chart` | codes, duplicates, drugs, education |
+
+A dropdown next to the prompt bar picks which one to ask (only showing the agents whose tools are actually loaded — "Drugs & education" only appears with `--drugs`/`--education`, "Patient chart" only with `--fhir`). Each agent keeps its own separate conversation, so asking "Codes" something doesn't drag duplicate-matching context into it or vice versa, and each one's system prompt only has rules for the job it can actually do — a codes question can't end up reasoning about data-quality rules it was never given. The web UI builds one `Assistant` per agent, lazily, sharing the same underlying tool-calling loop and the same grounding check (a code in the answer that no tool actually returned still gets flagged, regardless of which agent answered). The CLI (`scripts/assistant_cli.py`) and the library itself default to the "general" profile unless you pass `profile=` explicitly, so nothing about existing scripts changes.
 - The audit log records which tool ran, never the question, the drug name, the code, any patient details, a note's text, or anything about an ROI request or referral.
 
 ## Setup
@@ -116,6 +135,7 @@ pytest
 ```
 ./scripts/generate_synthea.sh        # synthetic patients (needs Java 17 and the Synthea jar)
 ./scripts/fetch_icd10.sh             # ICD-10-CM code descriptions from CDC/NCHS
+./scripts/fetch_hcpcs.sh             # HCPCS Level II alpha-numeric file from CMS (no CPT)
 ```
 
 Synthea's jar location defaults to `~/Documents/Synthea/synthea-with-dependencies.jar`; set `SYNTHEA_JAR` to change it. Both downloads land in `data/`, which is gitignored.
@@ -172,6 +192,14 @@ python scripts/ui_cli.py --model gemma4:e4b --fhir data/synthea/fhir
 With `--fhir` and a model chosen, the prompt bar on a patient's chart page says "Ask about <first name>'s chart". Questions there go to the same assistant, which gets one extra tool, `patient_chart`, that returns that patient's chart from their FHIR file. The raw chart data it used is shown next to the answer. Rules it follows: answer only from the chart, say so when the chart does not have the answer, never say a lab value is normal or abnormal (these files carry no reference ranges), and never diagnose or advise. Each vital and lab comes with its most recent value and up to ten earlier ones, so the assistant can report values over time, but it describes values and dates only and never calls a change better or worse. Multi-part observations such as blood pressure are read part by part. Social-history observations (tobacco status) and screening questionnaires (PHQ-2/9, GAD-7, AUDIT-C, DAST-10, PRAPARE items) are read and shown, and the assistant reports their scores as recorded and never says what a score means. Any observation type still not read is listed by name, so the assistant says "not read" and not "not in the chart". The assistant's context window is set to 16384 tokens (override with `HIM_NUM_CTX`), because a whole chart is large and Ollama cuts off silently past its window. Everything stays on this machine.
 
 `--fhir PATH` (on `ui_cli.py` and `assistant_cli.py`) reads FHIR Patient resources instead of the Synthea CSV: a single Patient, a Bundle, or NDJSON (as in the FHIR Bulk Data export), from a file or a whole folder. It runs locally and makes no network calls. It prints what it read and what it left out (deceased, no usable name, unreadable files). Mapping follows US Core Patient: official name first, `male`/`female` to M/F (`other` and `unknown` stay blank so they never count as a conflict), partial birth dates kept as written, `postalCode` kept as written.
+
+### SMART on FHIR (web UI, live, optional, uses the internet)
+
+Everything above reads FHIR data from local files. The **SMART on FHIR** link instead connects live to a public SMART on FHIR sandbox — the actual OAuth2 App Launch flow (standalone launch, PKCE/S256), not a file import — and pulls one of the sandbox's own synthetic test patients straight from its FHIR server. It's read-only: nothing is ever written back to the sandbox.
+
+Clicking Connect sends your browser to the sandbox's own authorize/patient-picker page; the sandbox sends you back once you pick a patient, and the chart is fetched live and rendered the same way as a local FHIR chart (Problem list, Medications, Allergies, Vitals, Labs, Visits, Immunizations) — it's the same `chart_from_resources()` code underneath, just fed resources from live HTTP calls instead of a file. The authorization and token endpoints are never hardcoded: they're read at connect time from the server's own `.well-known/smart-configuration`, the way a real SMART client is supposed to discover them, since those paths are the sandbox's own to define.
+
+Defaults to [SMART Health IT's public sandbox](https://launch.smarthealthit.org/), which needs no app registration — any `client_id` is accepted. The default FHIR server URL has a `/sim/<encoded>/` segment baked in: that's this launcher's own way of carrying launch config (standalone, not EHR launch; no patient pre-picked; PKCE required) — a plain `/v/r4/fhir` base isn't a valid standalone-launch server on its own for this launcher, confirmed against the real sandbox. [Launch the sandbox's own form](https://launch.smarthealthit.org/) and copy its generated "FHIR Server Base URL" if you want a different sim configuration. Override with `HIM_SMART_ISS` / `HIM_SMART_CLIENT_ID` to point at a different sandbox entirely (Epic on FHIR, Oracle Health/Cerner, etc.), which may require a client_id you've actually registered there. Disconnecting clears the in-memory token; nothing from a SMART connection is written to disk.
 
 ### ROI request tracker (web UI)
 
@@ -252,9 +280,11 @@ Run `evaluate_matching.py` and `evaluate_hard.py` yourself for current numbers.
 - **Search relaxation.** If no code matches every word, the search retries without filler words like "complications" and words that match nothing, and says what it dropped. It never drops a real word to force an answer.
 - **Search shows 10 codes at a time.** When more match, the result says "10 of N shown" and the assistant is told to say the list is partial. Ranking is by how directly the words match, with one hand-written boost: "high blood pressure" ranks essential (primary) hypertension first. Other lay phrases have no such boost.
 - **Quality checks are about format, not truth.** A birth date can be a valid date and still be the wrong one. The report finds malformed and missing values; it cannot find wrong ones.
-- **No CPT.** CPT codes are licensed by the AMA and are not included.
+- **No CPT.** CPT codes are licensed by the AMA and are not included. HCPCS Level II (the non-CPT part of HCPCS — supplies, DME, ambulance, etc.) is CMS-maintained and free to use, so that part is included.
+- **HCPCS file layout.** CMS's alpha-numeric file's internal layout has changed between releases (fixed-width in older years, delimited in newer ones), so `hcpcs.py` detects the layout rather than assuming one. If a real CMS download fails to parse, that is a parser gap to fix, not a sign the file is wrong — the error message says so.
 - **Models are imperfect.** Small local models can miscount, skip a tool, or reword your question. That is why raw tool results are printed and why scan results state their own totals. The code-grounding check can occasionally flag text that only looks like a code (for example "B12").
 - **Code sets change.** ICD-10-CM is updated every October 1 (sometimes April 1). Results name the file they came from.
+- **SMART on FHIR is a standalone-launch demo, not a production client.** It only does the flow where the user initiates the connection and picks a patient at the sandbox; it does not implement EHR launch (where an EHR embeds and launches the app with a `launch` context already attached), refresh tokens, or writing data back. The connection is held in memory for this one running copy of the app, not persisted to disk, and is lost on restart. It targets a sandbox that explicitly needs no app registration; a sandbox that does require one (a private Epic/Oracle Health registration, say) needs its own registered `client_id` set via `HIM_SMART_CLIENT_ID`.
 
 ## Models tried
 
@@ -270,7 +300,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, fhir, rxnorm, medlineplus, quality, assistant, audit, web UI)
+src/him_workbench/   package code (matching, icd10, hcpcs, fhir, rxnorm, medlineplus, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)
@@ -283,6 +313,7 @@ logs/                audit log (gitignored)
 
 - [Synthea](https://github.com/synthetichealth/synthea) synthetic patients (Apache 2.0).
 - ICD-10-CM code descriptions published by CDC/NCHS.
+- HCPCS Level II alpha-numeric code file published by CMS (not CPT, which is AMA-licensed and not included).
 
 ## Credits
 
@@ -291,8 +322,10 @@ This project builds on other people's work:
 - **Matching method:** the scoring approach follows Fellegi and Sunter, "A Theory of Record Linkage" (Journal of the American Statistical Association, 1969). Name similarity uses Jaro-Winkler.
 - **Synthetic patients:** [Synthea](https://github.com/synthetichealth/synthea), from The MITRE Corporation (Apache 2.0).
 - **Diagnosis codes:** ICD-10-CM, published by CDC/NCHS.
+- **Supply/DME/service codes:** HCPCS Level II, published by CMS (not CPT/HCPCS Level I, which is AMA-licensed and not included).
 - **Drug names and patient education:** the National Library of Medicine's RxNorm and MedlinePlus Connect services (both optional, off by default).
 - **Record format:** HL7 FHIR R4 and US Core.
+- **Live sandbox connection:** the [HL7 SMART App Launch Framework](https://hl7.org/fhir/smart-app-launch/) and the public [SMART Health IT sandbox](https://launch.smarthealthit.org/).
 - **Inspiration:** the idea of a private, local-first assistant that runs on Ollama and logs what it does was inspired by [Jarvis](https://github.com/Salahasfan02/Jarvis) by Salah Asfan. This project shares no code with it.
 - **Local models:** [Ollama](https://ollama.com) and the open models it runs.
 

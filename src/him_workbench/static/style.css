@@ -122,6 +122,10 @@ a:hover { color: #fff; }
   flex: 1; min-width: 0; background: transparent; border: 0; color: #fff; font: 14px var(--body); outline: none;
 }
 .ask input::placeholder { color: var(--jelly-dim); }
+.ask select {
+  flex: none; max-width: 140px; background: rgba(0, 0, 0, .3); border: 1px solid #3a4c54; border-radius: 10px;
+  color: #fff; font: 12.5px var(--body); padding: 3px 4px;
+}
 .ask kbd {
   font: 12px var(--mono); color: var(--jelly-dim); border: 1px solid #3a4c54; border-radius: 4px; padding: 0 6px;
 }

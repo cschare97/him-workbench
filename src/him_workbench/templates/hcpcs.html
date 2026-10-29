@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>HCPCS</h1><span class="meta">{{ source or 'no HCPCS Level II file loaded' }}</span></div>
+{% if not loaded %}
+<p class="empty">No HCPCS Level II file found. Run <span class="mono">./scripts/fetch_hcpcs.sh</span>, then restart this page.</p>
+{% else %}
+<form class="inline" method="get" action="/hcpcs" role="search">
+  <label class="sr" for="hq">Search HCPCS codes</label>
+  <input id="hq" type="search" name="q" value="{{ q }}" placeholder="A supply, service or code, like wheelchair or E0100">
+  <button type="submit">Search</button>
+</form>
+{% if lookup %}
+<div class="panel">
+  {% if lookup.status == 'valid' %}
+    <b class="mono">{{ lookup.code }}</b> {{ lookup.description }}
+  {% else %}
+    <b class="mono">{{ lookup.code }}</b> is not in this code file.
+  {% endif %}
+</div>
+{% endif %}
+{% if unmatched %}<p class="note warn"><strong>Not found in any code description: {{ unmatched|join(', ') }}.</strong> The results below do not account for it and may not fit. It may be a term the code set files under a different name, so try the cause or a related word.</p>{% endif %}
+{% for w, close in maybe.items() %}<p class="note info">Did you mean {% for c in close %}<a href="{{ url_for('hcpcs_page', q=q.replace(w, c)) }}">{{ c }}</a>{% if not loop.last %}, {% endif %}{% endfor %} instead of "{{ w }}"?</p>{% endfor %}
+{% if ignored %}<p class="note info">No code matched every word, so this search ignored: {{ ignored|join(', ') }}.</p>{% endif %}
+{% if q and not results and not lookup %}
+<p class="empty">No codes match “{{ q }}”. Try fewer or different words.</p>
+{% elif results %}
+{% if total > results|length %}<p class="note">Showing {{ results|length }} of {{ total }} matching codes. Add a word to narrow the list.</p>{% endif %}
+<table>
+  <thead><tr><th>Code</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for e in results %}<tr><td class="mono">{{ e.display }}</td><td>{{ e.description }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% elif not q %}
+<p class="empty">Search by plain-English text or paste a code. HCPCS Level II only (supplies, equipment, ambulance, etc.) — not CPT, which is AMA-licensed and not included here. Reference lookup only, not coding or billing advice.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

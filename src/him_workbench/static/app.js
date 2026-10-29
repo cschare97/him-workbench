@@ -3,6 +3,7 @@
   "use strict";
   var form = document.getElementById("ask-form");
   var input = document.getElementById("ask-input");
+  var agentSelect = document.getElementById("ask-agent");
   var panel = document.getElementById("answer-panel");
   if (!form || !panel) return;
   var qEl = document.getElementById("answer-q");
@@ -56,7 +57,10 @@
     ansEl.innerHTML = '<div class="busy">Asking the model…</div>';
     toolsEl.innerHTML = "";
     open();
-    post("/api/ask", form.dataset.patient ? { question: q, patient_id: form.dataset.patient } : { question: q }).then(function (res) {
+    var body = { question: q };
+    if (form.dataset.patient) body.patient_id = form.dataset.patient;
+    if (agentSelect && agentSelect.value) body.agent = agentSelect.value;
+    post("/api/ask", body).then(function (res) {
       if (!res.ok) {
         ansEl.innerHTML = '<p class="warn">' + esc(res.body.error || "Something went wrong.") + "</p>";
         return;
@@ -78,6 +82,14 @@
     if (e.key === "/" && !typing) { e.preventDefault(); input.focus(); }
     if (e.key === "Escape") { if (!panel.hidden) close(); else input.blur(); }
   });
+
+  // SMART on FHIR page: disconnect from the live sandbox.
+  var smartDisconnect = document.getElementById("smart-disconnect");
+  if (smartDisconnect) {
+    smartDisconnect.addEventListener("click", function () {
+      post("/smart/disconnect").then(function () { window.location.href = "/smart"; });
+    });
+  }
 
   // Models page: pick the model the prompt bar uses.
   var picker = document.getElementById("model-picker");

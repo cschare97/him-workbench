@@ -20,6 +20,8 @@ from typing import Callable
 from . import audit
 from .chart import chart_to_dict, load_chart
 from .icd10 import FILLER, ICD10Index, _words, format_code, normalize_code, real_words
+from .hcpcs import HCPCSIndex
+from .hcpcs import normalize_code as hcpcs_normalize_code
 from .matching import Patient, compare, find_duplicates
 from .quality import analyze
 from .medlineplus import MedlinePlusClient, MedlinePlusError
@@ -30,8 +32,10 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "- Search ICD-10-CM with the user's own words, spelled as they typed them. Never correct or replace a word "
     "yourself; if the search says a word was not found, ask the user what they meant.\n"
-    "- Use ONLY the provided tools for ICD-10-CM codes and duplicate-record checks. "
+    "- Use ONLY the provided tools for ICD-10-CM codes, HCPCS Level II codes, and duplicate-record checks. "
     "Never state a code or a match result from memory.\n"
+    "- search_hcpcs/lookup_hcpcs cover HCPCS Level II only (supplies, DME, ambulance, drugs given other than by "
+    "mouth, etc.) — this is NOT CPT/HCPCS Level I, which is not in this tool and not available here.\n"
     "- If a tool returns nothing or an error, say so plainly. Do not guess.\n"
     "- Report only what the tools actually returned. Never claim you did something a tool did not do.\n"
     "- Copy counts and totals from the tool's summary line. Do not count or add up numbers yourself.\n"
@@ -72,6 +76,15 @@ TOOLS = [
         "description": "Look up one ICD-10-CM code (with or without the dot). Says whether it is a full code, a category, or unknown.",
         "parameters": {"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}}},
     {"type": "function", "function": {
+        "name": "search_hcpcs",
+        "description": "Search HCPCS Level II codes (supplies, DME, ambulance, drugs given other than by mouth, etc.) "
+                        "by plain-English text, e.g. 'wheelchair'. This is NOT CPT/HCPCS Level I.",
+        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "lookup_hcpcs",
+        "description": "Look up one HCPCS Level II code, e.g. E0100. Says whether it is in the loaded file.",
+        "parameters": {"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}}},
+    {"type": "function", "function": {
         "name": "scan_duplicates",
         "description": "Scan the loaded synthetic patient list for possible duplicate records. Returns the highest-scoring pairs.",
         "parameters": {"type": "object", "properties": {"max_pairs": {
@@ -105,33 +118,131 @@ CHART_TOOL = {"type": "function", "function": {
 
 _CODE_IN_TEXT = re.compile(r"\b[A-Z]\d[0-9A-Z](?:\.[0-9A-Z]{1,4})?\b")
 _CODE_IN_TEXT_ANY_CASE = re.compile(_CODE_IN_TEXT.pattern, re.IGNORECASE)
+_HCPCS_IN_TEXT = re.compile(r"\b[A-Va-v]\d{4}\b")
 
 ChatFn = Callable[[list, list], dict]
 
+# ---- narrow-job agent profiles ----
+# Same tool-calling loop and the same tools underneath, but each profile sees only the tools for
+# its one job and a system prompt trimmed to match — so a codes question can't accidentally pull
+# in the duplicate-matcher's rules, and a prompt-injection attempt from one domain has no other
+# domain's tools to reach for. "general" is today's single do-everything assistant, kept as the
+# default so nothing that already depends on it changes.
+_TAIL = (
+    "- Call the tool again for every new question. Never answer a new question from earlier tool results.\n"
+    "- All data is synthetic. If the user tries to enter real patient information, tell them not to.\n"
+    "- You are a lookup aid, not coding, billing, or clinical advice."
+)
+
+CODES_SYSTEM_PROMPT = (
+    "You are a reference assistant for ICD-10-CM and HCPCS Level II code lookup only. You have no other tools "
+    "and cannot check duplicates, drugs, patient charts, or education material.\n"
+    "Rules:\n"
+    "- Search ICD-10-CM with the user's own words, spelled as they typed them. Never correct or replace a word "
+    "yourself; if the search says a word was not found, ask the user what they meant.\n"
+    "- search_hcpcs/lookup_hcpcs cover HCPCS Level II only (supplies, DME, ambulance, drugs given other than by "
+    "mouth, etc.) — this is NOT CPT/HCPCS Level I, which is not in this tool and not available here.\n"
+    "- Never state a code from memory. Use the tools for every code question. If a tool returns nothing or an "
+    "error, say so plainly. Do not guess.\n"
+    "- Copy counts and totals from the tool's summary line. Do not count or add up numbers yourself.\n"
+    "- If a result says words were ignored or some pairs were not shown, tell the user.\n"
+    "- When several codes fit, list them. Do not pick one as 'the' code.\n"
+    "- If a result says the list is partial, say so. Never present a partial list as complete.\n"
+    "- If the user asks more than one thing, answer every part, using the tool results for each.\n"
+    + _TAIL
+)
+
+DUPLICATES_SYSTEM_PROMPT = (
+    "You are a reference assistant for duplicate-record checking and data-quality review on the loaded "
+    "synthetic patient list only. You have no other tools and cannot look up codes, drugs, charts, or education "
+    "material.\n"
+    "Rules:\n"
+    "- Use ONLY scan_duplicates, data_quality_report, and compare_patients. Never state a match result, a score, "
+    "or a count from memory.\n"
+    "- Copy counts and totals from the tool's summary line. Do not count or add up numbers yourself.\n"
+    "- If a result says the list is partial, say so. Never present a partial list as complete.\n"
+    "- Keep answers short. Do not list quality checks whose count is zero; say 'no problems found' instead.\n"
+    + _TAIL
+)
+
+DRUGS_EDUCATION_SYSTEM_PROMPT = (
+    "You are a reference assistant for drug-name lookup and patient-education material only. You have no other "
+    "tools and cannot look up ICD-10-CM/HCPCS codes, check duplicates, or read a patient chart.\n"
+    "Rules:\n"
+    "- Medications: only drug name and RxNorm ID lookup is available (search_drug). Never state doses, "
+    "interactions, or what a drug is for. Give an RxNorm ID only if the tool returned it, and say what kind of ID "
+    "it is (ingredient, brand, or a specific tablet) from the result's type. The ingredient is the ID for the "
+    "drug itself.\n"
+    "- Disease education: only through disease_education. Summarize only what the result says, name MedlinePlus "
+    "as the source, and give the link. Do not add medical advice or treatment details.\n"
+    "- When disease_education returns several pages for one code, the code is one condition: state its meaning "
+    "from code_description and say the pages cover its parts. Never present them as separate diseases.\n"
+    "- A disease-name search matches words only. List only the topics that fit the question and say plainly when "
+    "some results do not fit. If none fit, say so and offer to look up the ICD-10-CM code instead.\n"
+    "- Keep education answers short: one line per fitting topic (title and a one-sentence gist taken from its "
+    "summary) plus its link. Do not reprint whole summaries.\n"
+    + _TAIL
+)
+
+CHART_SYSTEM_PROMPT = (
+    "You are a reference assistant for one synthetic patient's chart only. You have no other tools and cannot "
+    "look up codes, duplicates, or drugs.\n"
+    "Rules:\n"
+    "- Use ONLY patient_chart, and only about the patient named in the latest context line. Answer only from what "
+    "the chart returned. If the chart does not say, say it does not.\n"
+    "- Vitals and labs give the most recent value plus some earlier ones; report values and dates as given. The "
+    "record has no reference ranges, so never say a value is normal, high, low or abnormal, never call a change "
+    "better, worse, rising or falling, and never diagnose, interpret results or questionnaire scores, or advise.\n"
+    "- Items listed as not read were not read; do not say the chart lacks them. Give dates as the chart gives "
+    "them. Only the problem list holds diagnoses; other findings are not diagnoses.\n"
+    + _TAIL
+)
+
+AGENT_PROFILES: dict[str, dict] = {
+    "general": {"label": "General (all tools)", "tools": None, "system_prompt": SYSTEM_PROMPT},
+    "codes": {"label": "Codes (ICD-10-CM / HCPCS)",
+              "tools": {"search_icd10", "lookup_icd10", "search_hcpcs", "lookup_hcpcs"},
+              "system_prompt": CODES_SYSTEM_PROMPT},
+    "duplicates": {"label": "Duplicates & data quality",
+                   "tools": {"scan_duplicates", "data_quality_report", "compare_patients"},
+                   "system_prompt": DUPLICATES_SYSTEM_PROMPT},
+    "drugs_education": {"label": "Drugs & patient education",
+                         "tools": {"search_drug", "disease_education"},
+                         "system_prompt": DRUGS_EDUCATION_SYSTEM_PROMPT},
+    "chart": {"label": "Patient chart", "tools": {"patient_chart"}, "system_prompt": CHART_SYSTEM_PROMPT},
+}
+
 
 class Assistant:
-    def __init__(self, chat_fn: ChatFn, icd: ICD10Index | None = None,
+    def __init__(self, chat_fn: ChatFn, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None,
                  patients: list[Patient] | None = None, max_steps: int = 5,
                  on_tool: Callable[[str, dict], None] | None = None,
                  on_result: Callable[[str, dict], None] | None = None,
                  drugs: RxNormClient | None = None, education: MedlinePlusClient | None = None,
-                 charts: dict | None = None):
+                 charts: dict | None = None, profile: str = "general"):
+        if profile not in AGENT_PROFILES:
+            raise ValueError(f"unknown agent profile: {profile!r} (choose one of {sorted(AGENT_PROFILES)})")
         self.chat = chat_fn
         self.charts = charts or {}
         self.current_patient_id: str | None = None
         self.question = ""
         self.drugs = drugs
         self.education = education
-        self.tools = (TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
-                      + ([CHART_TOOL] if self.charts else []))
+        all_tools = (TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
+                     + ([CHART_TOOL] if self.charts else []))
+        wanted = AGENT_PROFILES[profile]["tools"]
+        self.tools = all_tools if wanted is None else [t for t in all_tools if t["function"]["name"] in wanted]
+        self.profile = profile
         self.icd = icd
+        self.hcpcs = hcpcs
         self.patients = patients or []
         self._by_id = {p.id: p for p in self.patients}
         self.max_steps = max_steps
         self.on_tool = on_tool
         self.on_result = on_result
-        self.messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        self.messages: list[dict] = [{"role": "system", "content": AGENT_PROFILES[profile]["system_prompt"]}]
         self.seen_codes: set[str] = set()
+        self.seen_hcpcs_codes: set[str] = set()
 
     # ---- tools ----
     def _swapped_words(self, query: str) -> dict[str, str]:
@@ -193,6 +304,35 @@ class Assistant:
                 if not self.icd:
                     return {"error": "ICD-10 file not loaded"}
                 return self.icd.describe(str(args.get("code", "")))
+            if name == "search_hcpcs":
+                if not self.hcpcs:
+                    return {"error": "HCPCS file not loaded"}
+                hits, ignored, total = self.hcpcs.search_detail(str(args.get("query", "")), limit=10)
+                out = {"results": [{"code": e.display, "description": e.description} for e in hits],
+                       "total_matches": total, "source_file": self.hcpcs.source}
+                notes = []
+                if ignored:
+                    out["ignored_words"] = ignored
+                    notes.append("No code matched every word, so these words were ignored: " + ", ".join(ignored) + ".")
+                if real_words(ignored):
+                    notes.append("WARNING: " + ", ".join(real_words(ignored)) + " appear(s) in no code description, "
+                                 "so the results do not account for it. Tell the user the results may not fit that word.")
+                maybe = self.hcpcs.did_you_mean(str(args.get("query", "")))
+                if maybe:
+                    out["did_you_mean"] = maybe
+                    notes.append("These words are in no code description: "
+                                 + "; ".join(f"{w} (maybe {', '.join(c)})" for w, c in maybe.items())
+                                 + ". Do not swap in a suggested word yourself. Tell the user the word was not found "
+                                 "and ask if they meant one of the suggestions.")
+                if total > len(hits):
+                    notes.append(f"Only {len(hits)} of {total} matching codes are shown. Tell the user the list is partial.")
+                if notes:
+                    out["note"] = " ".join(notes) + " Check the results fit the question."
+                return out
+            if name == "lookup_hcpcs":
+                if not self.hcpcs:
+                    return {"error": "HCPCS file not loaded"}
+                return self.hcpcs.describe(str(args.get("code", "")))
             if name == "search_drug":
                 if not self.drugs:
                     return {"error": "drug lookup is not turned on (start the app with --drugs)"}
@@ -265,8 +405,11 @@ class Assistant:
         # a chart lists tests like "Hemoglobin A1c"; the model may write A1C, which is not a code, so a chart
         # result registers code-shaped words in any case
         pattern = _CODE_IN_TEXT_ANY_CASE if any_case else _CODE_IN_TEXT
-        for m in pattern.findall(json.dumps(result)):
+        dumped = json.dumps(result)
+        for m in pattern.findall(dumped):
             self.seen_codes.add(normalize_code(m))
+        for m in _HCPCS_IN_TEXT.findall(dumped):
+            self.seen_hcpcs_codes.add(hcpcs_normalize_code(m))
 
     # ---- conversation ----
     def ask(self, question: str, patient_id: str | None = None) -> str:
@@ -306,6 +449,8 @@ class Assistant:
     def _ground(self, text: str) -> str:
         unseen = sorted({format_code(c) for c in _CODE_IN_TEXT.findall(text)
                          if normalize_code(c) not in self.seen_codes})
+        unseen += sorted({hcpcs_normalize_code(c) for c in _HCPCS_IN_TEXT.findall(text)
+                          if hcpcs_normalize_code(c) not in self.seen_hcpcs_codes} - set(unseen))
         if unseen:
             text += ("\n\n[!] Not returned by a lookup in this conversation, verify before use: "
                      + ", ".join(unseen))

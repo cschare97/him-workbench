@@ -7,6 +7,7 @@ pytest.importorskip("flask")
 
 from him_workbench import audit
 from him_workbench.icd10 import ICD10Index
+from him_workbench.hcpcs import HCPCSIndex
 from him_workbench.matching import Patient
 from him_workbench.webapp import create_app
 
@@ -25,7 +26,10 @@ def make(tmp_path, replies=(), **kw):
     p = tmp_path / "icd10cm_codes_2099.txt"
     p.write_text("A000    Test condition alpha\nA001    Test condition beta\n")
     icd = ICD10Index.from_file(p)
-    return create_app(icd=icd, patients=PTS, model="fake",
+    h = tmp_path / "hcpc2099_anweb.txt"
+    h.write_text("E0100   Test cane, with tip\nK0001   Test wheelchair, standard\n")
+    hcpcs = HCPCSIndex.from_file(h)
+    return create_app(icd=icd, hcpcs=hcpcs, patients=PTS, model="fake",
                       chat_factory=lambda m: scripted(*replies),
                       texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"], **kw)
 
@@ -41,7 +45,7 @@ def client(tmp_path):
 
 
 @pytest.mark.parametrize("path", ["/patients", "/duplicates", "/quality", "/codes?q=alpha",
-                                  "/audit", "/models", "/sources", "/about"])
+                                  "/hcpcs?q=cane", "/audit", "/models", "/sources", "/about"])
 def test_pages_load_with_banner(client, path):
     r = client.get(path, headers=HDR)
     assert r.status_code == 200 and b"Synthetic data only" in r.data
@@ -107,6 +111,22 @@ def test_no_external_urls_in_ui_files():
 def test_codes_page_finds_a_code_inside_a_sentence(client):
     html = client.get("/codes?q=what+disease+is+code+a00.0", headers=HDR).data
     assert b"A00.0" in html and b"Test condition alpha" in html
+
+
+def test_hcpcs_page_finds_code_and_code_inside_a_sentence(client):
+    assert b"E0100" in client.get("/hcpcs?q=cane", headers=HDR).data
+    html = client.get("/hcpcs?q=what+is+e0100", headers=HDR).data
+    assert b"E0100" in html and b"Test cane" in html
+
+
+def test_ask_can_use_search_hcpcs(tmp_path):
+    call = {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "search_hcpcs", "arguments": {"query": "wheelchair"}}}]}
+    c = make(tmp_path, [call, {"role": "assistant", "content": "K0001 is a standard wheelchair."}]).test_client()
+    r = c.post("/api/ask", json={"question": "wheelchair?"}, headers=HDR)
+    j = r.get_json()
+    assert r.status_code == 200 and j["calls"][0]["tool"] == "search_hcpcs"
+    assert any("K0001" in l for l in j["calls"][0]["lines"])
 
 
 def test_about_page_carries_nlm_attribution_only_when_drugs_are_on(tmp_path):
@@ -484,3 +504,157 @@ def test_app_does_not_run_in_debug_mode():
     # unrelated to what this test checks.
     src = (Path(__file__).parent.parent / "scripts" / "ui_cli.py").read_text()
     assert "debug=True" not in src
+
+
+def test_ask_rejects_unknown_agent(client):
+    assert client.post("/api/ask", json={"question": "x", "agent": "not-real"}, headers=HDR).status_code == 400
+
+
+def test_ask_with_codes_agent_still_works_and_reports_the_agent(tmp_path):
+    call_msg = {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "search_icd10", "arguments": {"query": "alpha"}}}]}
+    c = make(tmp_path, [call_msg, {"role": "assistant", "content": "A00.0 is alpha."}]).test_client()
+    r = c.post("/api/ask", json={"question": "alpha?", "agent": "codes"}, headers=HDR)
+    j = r.get_json()
+    assert r.status_code == 200 and j["answer"] == "A00.0 is alpha." and j["agent"] == "codes"
+
+
+def test_duplicates_agent_cannot_search_codes_so_the_model_never_sees_that_tool(tmp_path):
+    # the scripted chat function records the tool list it was offered on each call
+    seen = []
+    def chat_factory(model):
+        def chat(messages, tools):
+            seen.append({t["function"]["name"] for t in tools})
+            return {"role": "assistant", "content": "no duplicates found."}
+        return chat
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("A000    Test condition alpha\n")
+    icd = ICD10Index.from_file(p)
+    app = create_app(icd=icd, patients=PTS, model="fake", chat_factory=chat_factory,
+                     texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"])
+    r = app.test_client().post("/api/ask", json={"question": "any dupes?", "agent": "duplicates"}, headers=HDR)
+    assert r.status_code == 200
+    assert "search_icd10" not in seen[0] and "scan_duplicates" in seen[0]
+
+
+def test_reset_clears_all_agents(client):
+    assert client.post("/api/reset", json={}, headers=HDR).status_code == 200
+
+
+def test_each_agent_keeps_its_own_conversation(tmp_path):
+    # the fake chat function records how many messages it was handed each time it's called
+    seen = []
+    def chat_factory(model):
+        def chat(messages, tools):
+            seen.append(len(messages))
+            return {"role": "assistant", "content": "ok"}
+        return chat
+    p = tmp_path / "icd10cm_codes_2099.txt"
+    p.write_text("A000    Test condition alpha\n")
+    icd = ICD10Index.from_file(p)
+    app = create_app(icd=icd, patients=PTS, model="fake", chat_factory=chat_factory,
+                     texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"])
+    c = app.test_client()
+    c.post("/api/ask", json={"question": "q1", "agent": "codes"}, headers=HDR)       # system + user = 2
+    c.post("/api/ask", json={"question": "q2", "agent": "codes"}, headers=HDR)       # + assistant + user = 4
+    c.post("/api/ask", json={"question": "q3", "agent": "duplicates"}, headers=HDR)  # a fresh bot: 2 again
+    assert seen == [2, 4, 2]
+
+
+# ---- SMART on FHIR ----
+
+def test_smart_page_not_connected_shows_connect_link(client):
+    html = client.get("/smart", headers=HDR).data
+    assert b"Connect" in html and b"Disconnect" not in html
+
+
+def test_smart_connect_redirects_to_the_discovered_authorize_endpoint(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    monkeypatch.setattr(smart_fhir, "discover", lambda server: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "https://sandbox.example/token"})
+    app = make(tmp_path)
+    r = app.test_client().get("/smart/connect", headers=HDR)
+    assert r.status_code == 302 and r.headers["Location"].startswith("https://sandbox.example/auth?")
+    assert "state=" in r.headers["Location"] and "code_challenge=" in r.headers["Location"]
+
+
+def test_smart_connect_surfaces_a_discovery_failure_without_crashing(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    def boom(server):
+        raise smart_fhir.SmartError("could not reach the sandbox")
+    monkeypatch.setattr(smart_fhir, "discover", boom)
+    app = make(tmp_path)
+    r = app.test_client().get("/smart/connect", headers=HDR)
+    assert r.status_code == 302 and r.headers["Location"] == "/smart"
+    html = app.test_client().get("/smart", headers=HDR).data
+    assert b"could not reach the sandbox" in html
+
+
+def test_smart_callback_without_a_pending_launch_is_rejected(client):
+    r = client.get("/smart/callback?code=x&state=y", headers=HDR)
+    assert r.status_code == 302
+    html = client.get("/smart", headers=HDR).data
+    assert b"expired or did not match" in html
+
+
+def test_smart_callback_completes_the_connection_and_shows_the_live_chart(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    monkeypatch.setattr(smart_fhir, "discover", lambda server: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "https://sandbox.example/token"})
+    monkeypatch.setattr(smart_fhir, "exchange_code",
+                        lambda *a, **kw: {"access_token": "tok123", "patient": "p1"})
+    from him_workbench.chart import Chart, Problem, Coded
+    fake_chart = Chart(patient_id="p1")
+    fake_chart.problems = [Problem(what=Coded(code="I10", display="Hypertension (disorder)"),
+                                   status="active", onset="2020-01-01", resolved="")]
+    monkeypatch.setattr(smart_fhir, "fetch_chart",
+                        lambda server, pid, token: (Patient("p1", "Ann", "Lee", "1990-01-01", "F", "00000"), fake_chart))
+    app = make(tmp_path)
+    c = app.test_client()
+    connect = c.get("/smart/connect", headers=HDR)
+    state = re.search(r"state=([^&]+)", connect.headers["Location"]).group(1)
+    r = c.get(f"/smart/callback?code=abc&state={state}", headers=HDR)
+    assert r.status_code == 302 and r.headers["Location"] == "/smart"
+    html = c.get("/smart", headers=HDR).data
+    assert b"Ann Lee" in html and b"Hypertension" in html and b"Disconnect" in html
+
+
+def test_smart_callback_rejects_a_mismatched_state(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    monkeypatch.setattr(smart_fhir, "discover", lambda server: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "https://sandbox.example/token"})
+    app = make(tmp_path)
+    c = app.test_client()
+    c.get("/smart/connect", headers=HDR)
+    r = c.get("/smart/callback?code=abc&state=not-the-real-state", headers=HDR)
+    assert r.status_code == 302
+    html = c.get("/smart", headers=HDR).data
+    assert b"expired or did not match" in html and b"Disconnect" not in html
+
+
+def test_smart_callback_surfaces_a_sandbox_error_param(client):
+    r = client.get("/smart/callback?error=access_denied&error_description=user+said+no", headers=HDR)
+    assert r.status_code == 302
+    html = client.get("/smart", headers=HDR).data
+    assert b"access_denied" in html
+
+
+def test_smart_disconnect_clears_the_connection(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    from him_workbench.chart import Chart
+    monkeypatch.setattr(smart_fhir, "discover", lambda server: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "https://sandbox.example/token"})
+    monkeypatch.setattr(smart_fhir, "exchange_code",
+                        lambda *a, **kw: {"access_token": "tok123", "patient": "p1"})
+    monkeypatch.setattr(smart_fhir, "fetch_chart",
+                        lambda server, pid, token: (Patient("p1", "Ann", "Lee", "1990-01-01", "F", "00000"),
+                                                    Chart(patient_id="p1")))
+    app = make(tmp_path)
+    c = app.test_client()
+    connect = c.get("/smart/connect", headers=HDR)
+    state = re.search(r"state=([^&]+)", connect.headers["Location"]).group(1)
+    c.get(f"/smart/callback?code=abc&state={state}", headers=HDR)
+    assert b"Disconnect" in c.get("/smart", headers=HDR).data
+    assert c.post("/smart/disconnect", json={}, headers=HDR).status_code == 200
+    html = c.get("/smart", headers=HDR).data
+    assert b"Disconnect" not in html and b"Connect" in html

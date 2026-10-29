@@ -16,6 +16,19 @@ def find_icd_file(root: str | Path = "data/icd10cm") -> Path | None:
     return found[-1] if found else None
 
 
+def find_hcpcs_file(root: str | Path = "data/hcpcs") -> Path | None:
+    """The CMS alpha-numeric HCPCS data file itself (ANWEB), extracted by scripts/fetch_hcpcs.sh.
+    The same CMS zip also ships a record-layout doc, correction/transaction reports, and a
+    not-otherwise-classified-codes list; those are excluded by name, not just by extension."""
+    found = sorted(p for p in Path(root).rglob("*")
+                   if p.suffix.lower() in (".txt", ".csv")
+                   and "anweb" in p.name.lower()
+                   and "layout" not in p.name.lower()
+                   and "correction" not in p.name.lower()
+                   and "transaction" not in p.name.lower())
+    return found[-1] if found else None
+
+
 def load_synthea_patients(path: str | Path, include_deceased: bool = False) -> list[Patient]:
     out = []
     with Path(path).open(newline="", encoding="utf-8") as f:

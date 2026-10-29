@@ -25,6 +25,16 @@ def result_lines(name: str, r: dict) -> tuple[str, list[str]]:
             details.append(f"(no code matched every word; ignored: {', '.join(r['ignored_words'])})")
         details += [f"{x['code']:9} {x['description']}" for x in r["results"]]
         return f"{count} code(s) from {r.get('source_file')}", details
+    if name == "search_hcpcs":
+        shown, total = len(r["results"]), r.get("total_matches", len(r["results"]))
+        count = f"{shown} of {total}" if total > shown else f"{shown}"
+        details = []
+        if r.get("ignored_words"):
+            details.append(f"(no code matched every word; ignored: {', '.join(r['ignored_words'])})")
+        details += [f"{x['code']:9} {x['description']}" for x in r["results"]]
+        return f"{count} code(s) from {r.get('source_file')}", details
+    if name == "lookup_hcpcs":
+        return f"{r.get('status')}: {r.get('code')} {r.get('description', '')}".rstrip(), []
     if name == "search_drug":
         shown, total = len(r["results"]), r.get("total_matches", len(r["results"]))
         count = f"{shown} of {total}" if total > shown else f"{shown}"

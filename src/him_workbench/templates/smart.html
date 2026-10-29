@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% macro code(c) %}{% if c.code %}<span class="mono dim">{{ c.code }}</span>{% endif %}{% endmacro %}
+{% block content %}
+<div class="page-head"><h1>SMART on FHIR</h1></div>
+<p class="lede">A live, read-only connection to a public SMART on FHIR sandbox &mdash; synthetic test
+patients only, never real patient data. This never writes anything back to the sandbox.</p>
+
+{% if error %}<p class="warn">{{ error }}</p>{% endif %}
+
+{% if not connected %}
+<p>Connects to <span class="mono">{{ server }}</span> as client id <span class="mono">{{ client_id }}</span>.
+{% if server != default_server %}Set by <span class="mono">HIM_SMART_ISS</span>.{% else %}The default public
+sandbox &mdash; override with <span class="mono">HIM_SMART_ISS</span> / <span class="mono">HIM_SMART_CLIENT_ID</span>
+for a different one.{% endif %}</p>
+<p>Clicking Connect sends your browser to the sandbox's own sign-in/patient-picker page. Pick any of its
+synthetic test patients there; the sandbox sends you back here once you do.</p>
+<p><a class="btn" href="/smart/connect">Connect</a></p>
+{% else %}
+<p class="meta">Connected to <span class="mono">{{ server }}</span>
+  <button type="button" class="quiet" id="smart-disconnect">Disconnect</button></p>
+
+{% if problem %}
+<p class="empty">{{ problem }}</p>
+{% elif patient %}
+<div class="page-head"><h2>{{ patient.first }} {{ patient.last }}</h2>
+  <span class="meta">born {{ patient.dob or '(blank)' }} &middot; sex {{ patient.sex or '(blank)' }}</span></div>
+<p class="lede">Fetched live just now from the sandbox. Codes in grey are the codes the sandbox itself uses
+(mostly SNOMED CT, LOINC and RxNorm), not ICD-10.</p>
+
+<h3>Problem list</h3>
+{% if act %}
+<table><thead><tr><th>Problem</th><th>Code</th><th>Since</th></tr></thead><tbody>
+{% for x in act %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="dim">No active problems.</p>{% endif %}
+
+{% if past %}
+<h3>Past problems <span class="dim">({{ past|length }} resolved or inactive)</span></h3>
+<table><thead><tr><th>Problem</th><th>Code</th><th>From</th><th>To</th></tr></thead><tbody>
+{% for x in past %}<tr><td>{{ x.what.display|clean }}</td><td>{{ code(x.what) }}</td><td class="mono">{{ x.onset }}</td><td class="mono">{{ x.resolved }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
+<h3>Medications <span class="dim">({{ chart.medications|length }})</span></h3>
+{% if chart.medications %}
+<table><thead><tr><th>Medication</th><th>RxNorm</th><th>Status</th><th>Date</th></tr></thead><tbody>
+{% for m in chart.medications %}<tr><td>{{ m.what.display }}</td><td>{{ code(m.what) }}</td><td>{{ m.status }}</td><td class="mono">{{ m.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="dim">None on file.</p>{% endif %}
+
+{% if chart.allergies %}
+<h3>Allergies</h3>
+<table><thead><tr><th>Allergy</th><th>Status</th></tr></thead><tbody>
+{% for a in chart.allergies %}<tr><td>{{ a.what.display }}</td><td>{{ a.status }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
+<h3>Vitals <span class="dim">(most recent value of each)</span></h3>
+{% if chart.vitals %}
+<table><thead><tr><th>Measure</th><th class="num">Value</th><th>Date</th></tr></thead><tbody>
+{% for r in chart.vitals %}<tr><td>{{ r.what.display }}</td><td class="num">{{ r.value }}</td><td class="mono">{{ r.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="dim">None on file.</p>{% endif %}
+
+<h3>Labs <span class="dim">(most recent value of each)</span></h3>
+{% if chart.labs %}
+<table><thead><tr><th>Test</th><th class="num">Value</th><th>Date</th></tr></thead><tbody>
+{% for r in chart.labs %}<tr><td>{{ r.what.display }}</td><td class="num">{{ r.value }}</td><td class="mono">{{ r.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="dim">None on file.</p>{% endif %}
+
+<h3>Visits <span class="dim">({{ chart.visits|length }}, latest first)</span></h3>
+{% if chart.visits %}
+<table><thead><tr><th>Date</th><th>Class</th><th>Visit</th></tr></thead><tbody>
+{% for v in chart.visits[:25] %}<tr><td class="mono">{{ v.start }}</td><td>{{ v.cls or '-' }}</td><td>{{ v.kind|clean }}</td></tr>{% endfor %}
+</tbody></table>
+{% if chart.visits|length > 25 %}<p class="dim">{{ chart.visits|length - 25 }} earlier visits not shown.</p>{% endif %}
+{% else %}<p class="dim">None on file.</p>{% endif %}
+
+<h3>Immunizations <span class="dim">({{ chart.immunizations|length }})</span></h3>
+{% if chart.immunizations %}
+<table><thead><tr><th>Vaccine</th><th>CVX</th><th>Date</th></tr></thead><tbody>
+{% for i in chart.immunizations %}<tr><td>{{ i.what.display }}</td><td>{{ code(i.what) }}</td><td class="mono">{{ i.date }}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="dim">None on file.</p>{% endif %}
+
+{% if chart.skipped %}
+<p class="dim">Not shown on this page: {% for k, n in chart.skipped.items()|sort %}{{ n }} {{ k }}{{ ', ' if not loop.last }}{% endfor %}.</p>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}
