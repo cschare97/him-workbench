@@ -9,8 +9,14 @@
     <tr><th>Specialty</th><td>{{ q.specialty }}</td></tr>
     <tr><th>Priority</th><td>{{ q.priority }}</td></tr>
     <tr><th>Diagnosis</th><td>{{ q.diagnosis or '—' }}</td></tr>
+    <tr><th>ICD-10-CM codes</th><td>{{ q.icd10_codes or '—' }}</td></tr>
+    <tr><th>Referring provider</th><td>{{ q.referring_provider or '—' }}</td></tr>
+    <tr><th>Receiving provider</th><td>{{ q.receiving_provider or '—' }}</td></tr>
+    <tr><th>Coordinator</th><td>{{ q.coordinator or 'Unassigned' }}</td></tr>
     <tr><th>Reason</th><td>{{ q.reason }}</td></tr>
+    <tr><th>Notes</th><td>{{ q.notes or '—' }}</td></tr>
     <tr><th>Sent</th><td class="mono">{{ q.created }}</td></tr>
+    {% if q.appointment_date %}<tr><th>Appointment</th><td class="mono">{{ q.appointment_date }}</td></tr>{% endif %}
     <tr><th>Flag</th><td class="{{ 'warn' if st == 'no response' else '' }}">{% if st == 'closed' %}closed{% elif st == 'no response' %}<strong>no response in {{ q.days_since_update(today) }} days</strong>{% elif st == 'scheduled' %}scheduled{% else %}on track{% endif %}</td></tr>
   </tbody>
 </table>
@@ -20,6 +26,9 @@
 <form class="ref-form" data-ref="/referrals/{{ q.id }}/status" autocomplete="off">
   <label>Move to
     <select name="status">{% for m in moves %}<option value="{{ m }}">{{ labels[m] }}</option>{% endfor %}</select>
+  </label>
+  <label>Appointment date (if scheduling)
+    <input name="appointment_date" type="date">
   </label>
   <label>Note (required when declining: say why)
     <input name="note" maxlength="300">

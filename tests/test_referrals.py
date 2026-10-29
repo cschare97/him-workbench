@@ -20,7 +20,8 @@ def store():
 
 def make(store, **kw):
     a = dict(patient_id="p1", specialty="Cardiology", priority="routine",
-             reason="evaluation of palpitations", created="2026-10-01", today=T)
+             reason="evaluation of palpitations", referring_provider="Dr. Nguyen",
+             created="2026-10-01", today=T)
     a.update(kw)
     return store.create(**a)
 
@@ -85,6 +86,37 @@ def test_bad_input_is_refused(store):
         make(store, reason="")
     with pytest.raises(ReferralError):
         make(store, reason="x" * 301)
+    with pytest.raises(ReferralError):
+        make(store, referring_provider="")                      # now required
+    with pytest.raises(ReferralError):
+        make(store, coordinator="Dr. Nobody")                   # not in COORDINATORS
+    with pytest.raises(ReferralError):
+        make(store, icd10_codes="not-a-code")
+
+
+def test_coordinator_blank_defaults_to_unassigned(store):
+    q = store.get(make(store, coordinator=""))
+    assert q.coordinator == "Unassigned"
+
+
+def test_icd10_codes_are_normalized_and_deduplicated(store):
+    q = store.get(make(store, icd10_codes="r00.2, R00.2 r07.9"))
+    assert q.icd10_codes == "R00.2, R07.9"
+
+
+def test_scheduling_with_an_appointment_date_shows_in_history(store):
+    rid = make(store)
+    store.set_status(rid, "scheduled", "booked", appointment_date="2026-11-04", today=T)
+    q = store.get(rid)
+    assert q.appointment_date == "2026-11-04"
+    ev = store.events(rid)
+    assert ev[1].what == "Scheduled for 2026-11-04"
+
+
+def test_appointment_date_ignored_for_a_status_that_is_not_scheduled(store):
+    rid = make(store)
+    store.set_status(rid, "declined", "nope", appointment_date="2026-11-04", today=T)
+    assert store.get(rid).appointment_date == ""
 
 
 def test_list_puts_no_response_first_then_scheduled_then_on_track_then_closed(store):

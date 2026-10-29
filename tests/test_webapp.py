@@ -321,27 +321,34 @@ def test_referrals_page_log_schedule_and_refuse_out_of_order(tmp_path):
     page = c.get("/referrals", headers=HDR).data
     assert b"Referrals" in page and b"Log a referral" in page and b"Maria Okafor" in page
     r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
-                                       "reason": "intermittent palpitations", "diagnosis": "Palpitations"},
+                                       "reason": "intermittent palpitations", "diagnosis": "Palpitations",
+                                       "referring_provider": "Dr. Nguyen", "receiving_provider": "Dr. Patel",
+                                       "coordinator": "Casey Lin", "icd10_codes": "R00.2"},
                headers=HDR)
     assert r.status_code == 200 and r.get_json()["id"] == 1
     page = c.get("/referrals", headers=HDR).data
-    assert b"Cardiology" in page and b"Maria Okafor" in page and b"on track" in page
+    assert b"Cardiology" in page and b"Maria Okafor" in page and b"on track" in page and b"Casey Lin" in page
     bad = c.post("/referrals/1/status", json={"status": "completed"}, headers=HDR)
     assert bad.status_code == 400 and "scheduled" in bad.get_json()["error"]
-    assert c.post("/referrals/1/status", json={"status": "scheduled", "note": "appt 11/4"},
+    assert c.post("/referrals/1/status", json={"status": "scheduled", "note": "appt 11/4",
+                                                "appointment_date": "2026-11-04"},
                   headers=HDR).status_code == 200
     detail = c.get("/referrals/1", headers=HDR).data
-    assert b"appt 11/4" in detail and b"Scheduled" in detail
+    assert b"appt 11/4" in detail and b"Scheduled" in detail and b"2026-11-04" in detail
+    assert b"Dr. Nguyen" in detail and b"Dr. Patel" in detail and b"R00.2" in detail
 
 
 def test_referrals_rejects_unknown_patient_bad_input_and_non_json(tmp_path):
     c = _referrals_app(tmp_path).test_client()
     r = c.post("/referrals/new", json={"patient_id": "nope", "specialty": "Cardiology", "priority": "routine",
-                                       "reason": "x"}, headers=HDR)
+                                       "reason": "x", "referring_provider": "Dr. Nguyen"}, headers=HDR)
     assert r.status_code == 400 and "Pick a patient" in r.get_json()["error"]
     r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
-                                       "reason": ""}, headers=HDR)
+                                       "reason": "", "referring_provider": "Dr. Nguyen"}, headers=HDR)
     assert r.status_code == 400
+    r = c.post("/referrals/new", json={"patient_id": "3", "specialty": "Cardiology", "priority": "routine",
+                                       "reason": "x", "referring_provider": ""}, headers=HDR)
+    assert r.status_code == 400 and "Referring provider" in r.get_json()["error"]
     assert c.post("/referrals/new", data="x=1", headers=HDR).status_code == 415
     assert c.get("/referrals/99", headers=HDR).status_code == 404
 
@@ -349,13 +356,48 @@ def test_referrals_rejects_unknown_patient_bad_input_and_non_json(tmp_path):
 def test_referral_no_response_is_shown_and_decline_requires_note(tmp_path):
     c = _referrals_app(tmp_path).test_client()
     c.post("/referrals/new", json={"patient_id": "3", "specialty": "Podiatry", "priority": "routine",
-                                   "reason": "foot pain", "created": "2026-09-01"}, headers=HDR)
+                                   "reason": "foot pain", "referring_provider": "Dr. Nguyen",
+                                   "created": "2026-09-01"}, headers=HDR)
     assert b"no response in" in c.get("/referrals", headers=HDR).data
     bad = c.post("/referrals/1/status", json={"status": "declined"}, headers=HDR)
     assert bad.status_code == 400 and "Note is required" in bad.get_json()["error"]
     assert c.post("/referrals/1/status", json={"status": "declined", "note": "not accepting new patients"},
                   headers=HDR).status_code == 200
     assert b"closed" in c.get("/referrals", headers=HDR).data
+
+
+def _bow_embed(text: str):
+    import re
+    vocab = ["asthma", "cardiology", "palpitations", "checkup", "wellness"]
+    words = re.findall(r"[a-z]+", text.lower())
+    return [float(words.count(w)) for w in vocab]
+
+
+def test_search_page_needs_fhir_data_and_then_indexes_and_ranks(tmp_path):
+    import json
+    c = make(tmp_path).test_client()
+    assert b"No FHIR chart data loaded" in c.get("/search", headers=HDR).data
+
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3", name="Essential hypertension (disorder)")))
+    c2 = make(tmp_path, chart_files={"3": f}, notes_embed=_bow_embed).test_client()
+    page = c2.get("/search", headers=HDR).data
+    assert b"1 notes indexed" in page
+    hits = c2.get("/search?q=checkup+wellness", headers=HDR).data
+    assert b"Maria Okafor" in hits and b"Essential hypertension" in hits
+
+
+def test_search_reports_embedding_error_instead_of_crashing(tmp_path):
+    import json
+    from him_workbench.embeddings import EmbeddingError
+
+    def broken(text):
+        raise EmbeddingError("Could not reach Ollama for embeddings (ConnectionRefusedError). Is Ollama running?")
+
+    f = tmp_path / "Maria_Okafor_3.json"
+    f.write_text(json.dumps(_bundle("3")))
+    c = make(tmp_path, chart_files={"3": f}, notes_embed=broken).test_client()
+    assert b"Could not reach Ollama" in c.get("/search", headers=HDR).data
 
 
 # ---- security edge cases: these assert the app behaves correctly under adversarial-shaped input,

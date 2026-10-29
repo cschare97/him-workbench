@@ -29,7 +29,7 @@ flowchart TB
     you(["You"])
 
     subgraph ui["Interfaces: this computer only (127.0.0.1)"]
-        web["Web UI: webapp.py<br/>tabs, patient charts, ROI tracker, referrals, prompt bar"]
+        web["Web UI: webapp.py<br/>tabs, patient charts, ROI tracker, referrals, document search, prompt bar"]
         cli["Terminal tools: scripts/"]
     end
 
@@ -46,11 +46,17 @@ flowchart TB
         chart["chart.py<br/>FHIR patient chart"]
         roi["roi.py<br/>ROI request tracker"]
         ref["referrals.py<br/>referral tracker"]
+        notes["notes.py<br/>generates a note per patient<br/>from their own chart data"]
+        docs["docsearch.py<br/>semantic note search"]
     end
 
     subgraph net["Internet, opt-in only: --drugs, --education"]
         rx["rxnorm.py"] -.-> nlm1(["NLM RxNorm API"])
         ml["medlineplus.py"] -.-> nlm2(["MedlinePlus"])
+    end
+
+    subgraph localnet["Local only: this computer's Ollama"]
+        emb["embeddings.py"] -.-> ollemb(["Ollama<br/>embedding model"])
     end
 
     audit[/"audit.py: logs/audit.jsonl<br/>tool names only"/]
@@ -64,9 +70,10 @@ flowchart TB
 
     you --> web
     you --> cli
-    web -->|prompt bar, incl. "ask about this patient"| asst
+    web -->|prompt bar, incl. ask about this patient| asst
     web -->|reads/writes directly, no model| roi
     web -->|reads/writes directly, no model| ref
+    web -->|reads directly, no chat model| docs
     cli --> asst
     asst <-->|chat and tool calls| llm
     asst -->|local tools, incl. patient_chart| core
@@ -80,13 +87,17 @@ flowchart TB
     icd -->|reads| codes
     roi -->|reads/writes| roidb
     ref -->|reads/writes| refdb
+    notes -->|reads| chart
+    docs -->|embeds via| emb
+    docs -->|notes come from| notes
 ```
 
-- Everything outside the dotted lines runs on your computer. The internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about — never patient information.
+- Everything outside the dotted lines runs on your computer. The internet connections are off unless you start the app with `--drugs` or `--education`, and they send only the drug name, code, or disease name you asked about — never patient information. Document search's embedding calls go to Ollama on this machine only, same as the chat model; nothing leaves your computer.
 - The assistant never answers from the model's memory: codes, duplicates, data-quality numbers and chart data come from the tools, and the raw tool results are shown next to the model's answer.
 - The ICD-10 search suggests close words for a misspelled term instead of silently searching a different one; the model is never allowed to swap a word in on its own.
-- The web UI's tabs (Patients, Duplicates, Data quality, Codes), the ROI request tracker, and the referral tracker call the core modules directly, with no model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
-- The audit log records which tool ran, never the question, the drug name, the code, any patient details, or anything about an ROI request or referral.
+- The web UI's tabs (Patients, Duplicates, Data quality, Codes), the ROI request tracker, the referral tracker, and document search call the core modules directly, with no chat model involved. Only the prompt bar — including "ask about this patient" on a chart page — goes through the assistant.
+- Document search does not call the chat model to create anything: a note's text is templated from a patient's own already-loaded chart data, and only the embedding model (a separate, smaller local model) is used, purely to rank notes by meaning. No record is ever created from a model's output — same reasoning as keeping ROI and referral logging form-only.
+- The audit log records which tool ran, never the question, the drug name, the code, any patient details, a note's text, or anything about an ROI request or referral.
 
 ## Setup
 
@@ -168,7 +179,11 @@ The **ROI requests** link in the web UI tracks release-of-information requests: 
 
 ### Referral tracker (web UI)
 
-The **Referrals** link tracks specialty referrals end to end: sent → scheduled → completed, or sent/scheduled → declined. Each referral records the patient, specialty, priority, reason, an optional diagnosis, and a dated history. The diagnostic value is catching the ones that stall: a referral still "sent" with nothing scheduled after the follow-up window (14 days by default, `HIM_REFERRAL_FOLLOWUP_DAYS` to change it, 1 to 90) is flagged "no response" in the list. Rules enforced: a referral cannot be marked completed until it is scheduled; a decline needs a written reason; closed referrals cannot be reopened. This is a standalone synthetic module — it is not read from, and does not reuse the schema of, any EHR's own referral or transaction table, OpenEMR's included; the follow-up window is a tracking setting, not a regulatory deadline like the ROI tracker's. Stored in `data/referrals.db` on this computer (gitignored). Synthetic referrals only.
+The **Referrals** link tracks specialty referrals end to end: sent → scheduled → completed, or sent/scheduled → declined. Each referral records the patient, specialty, priority, reason, referring provider, and — optionally — receiving provider, diagnosis, one or more ICD-10-CM codes, notes, and a referral coordinator (a fixed, clearly-synthetic name list; defaults to "Unassigned"). The diagnostic value is catching the ones that stall: a referral still "sent" with nothing scheduled after the follow-up window (14 days by default, `HIM_REFERRAL_FOLLOWUP_DAYS` to change it, 1 to 90) is flagged "no response" in the list. Rules enforced: a referral cannot be marked completed until it is scheduled; scheduling can record an appointment date; a decline needs a written reason; closed referrals cannot be reopened; every change is kept in a dated history. This is a standalone synthetic module — it is not read from, and does not reuse the schema of, any EHR's own referral or transaction table, OpenEMR's included; the follow-up window is a tracking setting, not a regulatory deadline like the ROI tracker's. Stored in `data/referrals.db` on this computer (gitignored; delete it if you have one from before this update, its schema changed). Synthetic referrals only. The workflow this implements is written up as a generic SOP: [`docs/referral-sop.md`](docs/referral-sop.md).
+
+### Document search (web UI)
+
+The **Document search** link finds patients by meaning rather than exact words — searching "heart racing" can find a note that says "palpitations." It runs over one generated note per patient: templated prose built from that patient's own already-loaded chart data (active problems, medications, allergies, recent vitals, most recent visit) — not a separate document corpus, and the chat model is never involved in writing a note or picking a result. Ranking uses a local Ollama embedding model (`nomic-embed-text` by default; set `HIM_EMBED_MODEL` for a different one — pull it first with `ollama pull <model>`). Needs `--fhir` so there's chart data to generate notes from; the index is built once, on first use. If the embedding model can't be reached at all, the page says so plainly instead of failing silently. Each note's own list of problems/medications/allergies is deduplicated and capped, and the whole note is truncated as a last resort, so it stays comfortably inside the embedding model's context window; a patient whose note still somehow fails to embed is skipped and counted (shown as "N skipped" next to the index count), not allowed to take the rest of the index down with it.
 
 ### Web UI (optional)
 

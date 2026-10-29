@@ -5,6 +5,8 @@
   add --drugs to turn on drug-name lookup (sends drug names to NLM over the internet)
   add --education to turn on disease education from MedlinePlus (sends codes and disease names to NLM over the internet)
   add --fhir PATH to read patients from FHIR files (a Patient, a Bundle, or NDJSON; a file or a folder)
+                   also turns on Document search: a generated note per patient, searched by meaning via
+                   a local Ollama embedding model (ollama pull nomic-embed-text; HIM_EMBED_MODEL to change it)
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
 
 Binds to 127.0.0.1 only. Synthetic data only. The model is optional: without one, every page

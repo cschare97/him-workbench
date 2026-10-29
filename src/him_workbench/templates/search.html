@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Document search</h1><span class="meta">{{ n_indexed }} notes indexed{% if skipped_count %}, {{ skipped_count }} skipped (too long to embed){% endif %}</span></div>
+<p class="lede">Semantic search over a generated clinical note per patient &mdash; each note is written from that patient's own loaded chart data (problems, medications, allergies, vitals, most recent visit), not a separate corpus. Matching is by meaning, via a local Ollama embedding model (<code>{{ embed_model }}</code>), so "heart racing" can find a note that says "palpitations." Runs entirely on this machine.</p>
+
+{% if not have_charts %}
+<p class="empty">No FHIR chart data loaded. Start the page with <code>--fhir PATH</code> to generate notes from patient charts.</p>
+{% elif error %}
+<p class="warn">{{ error }}</p>
+{% else %}
+<form method="get" action="/search" autocomplete="off">
+  <label class="sr" for="search-q">Search notes</label>
+  <input id="search-q" type="text" name="q" value="{{ q }}" maxlength="300" placeholder="e.g. heart racing, trouble breathing, foot pain" style="width:min(520px,100%); height:36px;">
+  <button type="submit">Search</button>
+</form>
+
+{% if q and not results %}
+<p class="empty">No notes matched well enough.</p>
+{% elif results %}
+<table>
+  <thead><tr><th>Patient</th><th>Note</th><th>Match</th></tr></thead>
+  <tbody>
+  {% for h in results %}
+    <tr>
+      <td><a href="/patients/{{ h.patient_id }}/chart">{{ name_of(h.patient_id) }}</a></td>
+      <td>{{ h.text }}</td>
+      <td class="mono">{{ "%.2f"|format(h.score) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -26,6 +26,9 @@ from . import roi as roi_mod
 from .roi import RoiError, RoiStore
 from . import referrals as referrals_mod
 from .referrals import ReferralError, ReferralStore
+from .docsearch import NoteIndex
+from .notes import generate_note
+from .embeddings import default_model as default_embed_model
 from datetime import date
 import re
 
@@ -51,7 +54,7 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
                models_lister=None, drugs=None, education=None, patient_source: str = "",
                chart_files: dict | None = None, roi_store: RoiStore | None = None,
-               referral_store: ReferralStore | None = None, today=None) -> Flask:
+               referral_store: ReferralStore | None = None, notes_embed=None, today=None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
@@ -68,6 +71,26 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
     st = SimpleNamespace(model=model, bot=None, icd=icd, patients=patients)
     st.dups = find_duplicates(patients) if patients else []
     st.quality = analyze(patients) if patients else None
+    st.notes = NoteIndex(embed_fn=notes_embed)
+    st.notes_built = False
+    embed_model = default_embed_model()
+
+    def ensure_notes_index() -> None:
+        if st.notes_built:
+            return
+        with lock:
+            if not st.notes_built:   # re-check: another request may have built it while we waited
+                def gen():
+                    for pid, f in chart_files.items():
+                        try:
+                            chart = load_chart(f)
+                        except (OSError, ValueError):
+                            continue
+                        p = by_id.get(pid)
+                        name = f"{p.first} {p.last}" if p else pid
+                        yield pid, generate_note(pid, chart, name).text
+                st.notes.build(gen())
+                st.notes_built = True
 
     def new_bot() -> Assistant | None:
         return (Assistant(chat_factory(st.model), icd=icd, patients=patients, drugs=drugs, education=education,
@@ -269,7 +292,8 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
         return render_template("referrals.html", active=None, nav="referrals", page_title="Referrals", rows=rows,
                                today=t, summary=referrals.summary(t), status=status, name_of=name_of,
                                statuses=referrals_mod.LABELS, priorities=referrals_mod.PRIORITIES,
-                               days=referrals.followup_days, patients=patients[:300], have_patients=bool(patients))
+                               coordinators=referrals_mod.COORDINATORS, days=referrals.followup_days,
+                               patients=patients[:300], have_patients=bool(patients))
 
     @app.get("/referrals/<int:rid>")
     def referral_detail(rid):
@@ -297,16 +321,37 @@ def create_app(*, icd: ICD10Index | None = None, patients: list[Patient] | None 
         out = {}
 
         def go():
-            out["id"] = referrals.create(pid, str(d.get("specialty", "")), str(d.get("priority", "")),
-                                         d.get("reason"), str(d.get("diagnosis", "")),
-                                         created=d.get("created") or None, today=get_today())
+            out["id"] = referrals.create(
+                pid, str(d.get("specialty", "")), str(d.get("priority", "")), d.get("reason"),
+                str(d.get("diagnosis", "")), referring_provider=str(d.get("referring_provider", "")),
+                receiving_provider=str(d.get("receiving_provider", "")), coordinator=str(d.get("coordinator", "")),
+                notes=str(d.get("notes", "")), icd10_codes=str(d.get("icd10_codes", "")),
+                created=d.get("created") or None, today=get_today())
         r = _ref_json(go)
         return jsonify(ok=True, id=out["id"]) if out else r
 
     @app.post("/referrals/<int:rid>/status")
     def referral_status(rid):
         d = request.get_json(silent=True) or {}
-        return _ref_json(lambda: referrals.set_status(rid, str(d.get("status", "")), d.get("note"), today=get_today()))
+        return _ref_json(lambda: referrals.set_status(rid, str(d.get("status", "")), d.get("note"),
+                                                       appointment_date=d.get("appointment_date") or None,
+                                                       today=get_today()))
+
+    # ---- document search ----
+    @app.get("/search")
+    def search_page():
+        q = request.args.get("q", "").strip()[:300]
+        have_charts = bool(chart_files)
+        results, error = [], ""
+        if have_charts:
+            ensure_notes_index()
+            error = st.notes.build_error
+            if q and not error:
+                results, error = st.notes.search(q, limit=25)
+        return render_template("search.html", active=None, nav="search", page_title="Document search", q=q,
+                               results=results, error=error, have_charts=have_charts, name_of=name_of,
+                               n_indexed=len(st.notes), skipped_count=st.notes.skipped_count,
+                               embed_model=embed_model)
 
     @app.get("/audit")
     def audit_page():

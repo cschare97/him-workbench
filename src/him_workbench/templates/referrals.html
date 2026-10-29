@@ -19,8 +19,23 @@
   <label>Diagnosis
     <input name="diagnosis" maxlength="300" placeholder="e.g. Palpitations">
   </label>
+  <label>ICD-10-CM codes
+    <input name="icd10_codes" maxlength="200" placeholder="e.g. R00.2 (optional, comma-separated)">
+  </label>
+  <label>Referring provider
+    <input name="referring_provider" maxlength="300" required placeholder="who is sending this referral">
+  </label>
+  <label>Receiving provider
+    <input name="receiving_provider" maxlength="300" placeholder="specialist or practice (optional)">
+  </label>
+  <label>Referral coordinator
+    <select name="coordinator">{% for c in coordinators %}<option>{{ c }}</option>{% endfor %}</select>
+  </label>
   <label style="grid-column: 1 / -1">Reason for referral
     <textarea name="reason" maxlength="300" required placeholder="Evaluation of intermittent palpitations"></textarea>
+  </label>
+  <label style="grid-column: 1 / -1">Notes
+    <textarea name="notes" maxlength="300" placeholder="additional notes (optional)"></textarea>
   </label>
   <button type="submit">Log referral</button>
   <span class="ref-msg warn" role="alert"></span>
@@ -35,7 +50,7 @@
 <p class="empty">No referrals{% if status %} with that status{% endif %}. Log one above.</p>
 {% else %}
 <table>
-  <thead><tr><th>#</th><th>Patient</th><th>Specialty</th><th>Priority</th><th>Diagnosis</th><th>Sent</th><th>Status</th><th>Flag</th></tr></thead>
+  <thead><tr><th>#</th><th>Patient</th><th>Specialty</th><th>Priority</th><th>Coordinator</th><th>Sent</th><th>Status</th><th>Flag</th></tr></thead>
   <tbody>
   {% for q in rows %}
     {% set st = q.state(today) %}
@@ -44,10 +59,10 @@
       <td>{{ name_of(q.patient_id) }}</td>
       <td>{{ q.specialty }}</td>
       <td>{{ q.priority }}</td>
-      <td>{{ q.diagnosis or '—' }}</td>
+      <td>{{ q.coordinator or 'Unassigned' }}</td>
       <td class="mono">{{ q.created }}</td>
       <td>{{ statuses[q.status] }}</td>
-      <td class="{{ 'warn' if st == 'no response' else '' }}">{% if st == 'closed' %}<span class="dim">closed</span>{% elif st == 'no response' %}<strong>no response in {{ q.days_since_update(today) }} days</strong>{% elif st == 'scheduled' %}scheduled{% else %}on track{% endif %}</td>
+      <td class="{{ 'warn' if st == 'no response' else '' }}">{% if st == 'closed' %}<span class="dim">closed</span>{% elif st == 'no response' %}<strong>no response in {{ q.days_since_update(today) }} days</strong>{% elif st == 'scheduled' %}scheduled{{ ' for ' + q.appointment_date if q.appointment_date else '' }}{% else %}on track{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
