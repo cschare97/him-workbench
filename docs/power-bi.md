@@ -25,7 +25,11 @@ No patient ids, names, reasons, diagnoses or notes are in any file. Blank cells 
 
 ## 2. Load them (in your Windows VM)
 
-Get the `data/dashboard-demo` folder into Windows, for example through a Parallels shared folder. In Power BI Desktop: **Get data > Text/CSV**, load all four, then in Power Query set column types:
+Get the export folder into Windows, for example through a Parallels shared folder.
+
+**Easiest: the Excel file.** Add `--xlsx` when you export (needs `pip install openpyxl`, or `pip install -e ".[powerbi]"`). It writes `powerbi.xlsx`: one sheet per table, header row and column types included. In Power BI Desktop: **Get data > Excel workbook**, pick the file, tick all four sheets, **Load**. Nothing to fix in Power Query, so skip the type list below, except marking the date table.
+
+**Or the CSVs.** In Power BI Desktop: **Get data > Text/CSV**, load all four. This was tested: Power BI did *not* use the first row as column names (columns came in as Column1, Column2...), so in **Transform data** click **Use first row as headers** on each table first, then set column types:
 
 - Dates: `created`, `scheduled_on`, `appointment_date`, `completed_on`, `declined_on` (referrals); `received`, `original_due`, `due`, `verified_on`, `closed_on` (roi_requests); `snapshot_date` (quality_snapshots); `date`, `week_start` (dim_date). Type **Date**.
 - Whole numbers: every `days_*`, `no_response`, `extended`, `closed_on_time`, `overdue`, `is_weekend`, `records`, `records_affected`.

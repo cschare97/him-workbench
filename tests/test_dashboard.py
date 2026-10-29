@@ -188,3 +188,23 @@ def test_dashboard_text_from_the_data_is_escaped(tmp_path):
 
 def test_dashboard_rejects_a_bad_host(tmp_path):
     assert make(tmp_path).get("/dashboard", headers={"Host": "evil.example"}).status_code == 403
+
+
+def test_xlsx_export_has_headers_and_real_types(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    from him_workbench.analytics import export_xlsx
+    (tmp_path / "t.csv").write_text("id,created,month,score,note\n1,2026-01-05,2026-01,2.5,a\n2,,2026-01,,\n", encoding="utf-8")
+    assert export_xlsx(tmp_path) == {"t": 2}
+    ws = openpyxl.load_workbook(tmp_path / "powerbi.xlsx")["t"]
+    rows = list(ws.iter_rows(values_only=True))
+    assert rows[0] == ("id", "created", "month", "score", "note")
+    assert rows[1][0] == 1 and isinstance(rows[1][1], __import__("datetime").datetime)
+    assert rows[1][2] == "2026-01" and rows[1][3] == 2.5      # year-month stays text, not a date
+    assert rows[2][1] is None and rows[2][3] is None            # blanks stay blank
+
+
+def test_xlsx_export_without_csvs_is_a_clear_error(tmp_path):
+    pytest.importorskip("openpyxl")
+    from him_workbench.analytics import export_xlsx
+    with pytest.raises(RuntimeError, match="no CSV"):
+        export_xlsx(tmp_path)

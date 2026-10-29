@@ -13,6 +13,7 @@ dependencies = []
 
 [project.optional-dependencies]
 ui = ["flask>=3"]
+powerbi = ["openpyxl>=3.1"]
 dev = ["pytest"]
 
 [tool.setuptools.packages.find]

@@ -235,6 +235,57 @@ def export_csv(out_dir: str | Path, referral_store, roi_store, history: QualityH
     return counts
 
 
+def _typed(values: list[str]) -> list:
+    """Turn one CSV column's text into real values: whole dates, whole numbers, decimals, or text. Blank stays blank.
+    A column is typed only if every non-blank value fits, so a mixed column stays text instead of erroring."""
+    import re
+    vals = [v for v in values if v != ""]
+    if vals and all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", v) for v in vals):
+        try:
+            return [date.fromisoformat(v) if v else None for v in values]
+        except ValueError:
+            pass
+    if vals and all(re.fullmatch(r"-?\d+", v) for v in vals):
+        return [int(v) if v else None for v in values]
+    if vals and all(re.fullmatch(r"-?\d+\.\d+", v) for v in vals):
+        return [float(v) if v else None for v in values]
+    return [v if v else None for v in values]
+
+
+def export_xlsx(out_dir: str | Path, name: str = "powerbi.xlsx") -> dict[str, int]:
+    """Build one Excel workbook from the CSVs already in `out_dir`: one sheet per CSV, header row, typed columns.
+    Power BI reads an Excel file's headers and column types as they are, so nothing needs fixing in Power Query.
+    Needs openpyxl (pip install -e ".[powerbi]"). Returns {sheet name: row count}."""
+    try:
+        from openpyxl import Workbook
+    except ImportError:
+        raise RuntimeError('openpyxl is needed for Excel export: pip install -e ".[powerbi]"') from None
+    out = Path(out_dir)
+    files = sorted(out.glob("*.csv"))
+    if not files:
+        raise RuntimeError(f"no CSV files in {out}; run the CSV export first")
+    wb = Workbook()
+    wb.remove(wb.active)
+    counts = {}
+    for f in files:
+        with f.open(newline="", encoding="utf-8") as fh:
+            rows = list(csv.reader(fh))
+        header, body = rows[0], rows[1:]
+        cols = [_typed([r[i] if i < len(r) else "" for r in body]) for i in range(len(header))]
+        ws = wb.create_sheet(f.stem)
+        ws.append(header)
+        for r in range(len(body)):
+            ws.append([cols[i][r] for i in range(len(header))])
+        for c, col in enumerate(cols, start=1):
+            if col and isinstance(next((v for v in col if v is not None), None), date):
+                for cell in ws.iter_rows(min_row=2, min_col=c, max_col=c):
+                    cell[0].number_format = "yyyy-mm-dd"
+        counts[f.stem] = len(body)
+    wb.save(out / name)
+    audit.log_call("dashboard_export_xlsx", {}, ", ".join(f"{k} {v}" for k, v in counts.items()))
+    return counts
+
+
 def line_geometry(values: list[float], labels: list[str], w: int = 640, h: int = 190, left: int = 38, right: int = 48,
                   top: int = 14, bottom: int = 26) -> dict:
     """Pixel positions for a one-series line chart that starts at zero. The page draws it as inline SVG."""

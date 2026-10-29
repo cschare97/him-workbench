@@ -130,7 +130,7 @@ def _controls() -> list[Control]:
         C("164.308(a)(5)(ii)(A)", "Security awareness and training", "Security reminders", "A", ORG, area=A_,
           gap="Workforce training."),
         C("164.308(a)(5)(ii)(B)", "Security awareness and training", "Protection from malicious software", "A", PARTIAL, area=A_,
-          evidence="The core has no third-party dependencies (Flask is optional). A pre-commit hook scans for secret-looking strings "
+          evidence="The core has no third-party dependencies (Flask and openpyxl are optional extras). A pre-commit hook scans for secret-looking strings "
                    "and personal terms.",
           gap="No dependency vulnerability scanning (for example pip-audit) and no malware controls.",
           checks=[has("pyproject.toml", "dependencies = []"), has("scripts/install_hooks.sh", "secret_check.sh")]),
