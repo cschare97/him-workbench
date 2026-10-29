@@ -14,6 +14,7 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 | Assistant | A local Ollama model that answers by calling the tools above. Every tool result is printed raw, so you can check the model's retelling against the source. A dropdown next to the prompt bar picks a narrower, single-purpose agent instead of the default do-everything one — see "Narrow-job agents" below. |
 | Data-quality report | Counts missing values and format problems (impossible dates, malformed zips, odd names) and exact same-name-and-birth-date groups. Counts only, never patient values. |
 | SMART on FHIR (live, optional) | Connects to a public SMART on FHIR sandbox over a real OAuth2 App Launch (PKCE), pulls one live synthetic test patient, and shows their chart. Read-only. See "SMART on FHIR" below. |
+| CCD / C-CDA reader | Reads a C-CDA XML document (CCD, discharge summary, referral note) into the same patient and chart the FHIR reader builds. Says how each section was read, what the document states that is not a list item, and what a CCD is missing. Local files only. See "CCD / C-CDA documents" below. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
 
 ## Principles
@@ -45,7 +46,7 @@ flowchart TB
         qual["quality.py<br/>data quality"]
         icd["icd10.py<br/>code search + did-you-mean"]
         hcpcs["hcpcs.py<br/>HCPCS Level II search"]
-        load["data.py, fhir.py<br/>patient loaders"]
+        load["data.py, fhir.py, cda.py<br/>patient loaders (FHIR JSON, C-CDA XML)"]
         chart["chart.py<br/>FHIR patient chart"]
         roi["roi.py<br/>ROI request tracker"]
         ref["referrals.py<br/>referral tracker"]
@@ -201,6 +202,25 @@ Clicking Connect sends your browser to the sandbox's own authorize/patient-picke
 
 Defaults to [SMART Health IT's public sandbox](https://launch.smarthealthit.org/), which needs no app registration — any `client_id` is accepted. The default FHIR server URL has a `/sim/<encoded>/` segment baked in: that's this launcher's own way of carrying launch config (standalone, not EHR launch; no patient pre-picked; PKCE required) — a plain `/v/r4/fhir` base isn't a valid standalone-launch server on its own for this launcher, confirmed against the real sandbox. [Launch the sandbox's own form](https://launch.smarthealthit.org/) and copy its generated "FHIR Server Base URL" if you want a different sim configuration. Override with `HIM_SMART_ISS` / `HIM_SMART_CLIENT_ID` to point at a different sandbox entirely (Epic on FHIR, Oracle Health/Cerner, etc.), which may require a client_id you've actually registered there. Disconnecting clears the in-memory token; nothing from a SMART connection is written to disk.
 
+### CCD / C-CDA documents (CLI and web UI)
+
+FHIR is JSON resources; C-CDA is one XML document with a header and a body of sections, and it is still what most care summaries and transitions of care are sent as. `cda.py` reads one into the same `Patient` and `Chart` the FHIR reader builds, so the chart views and the assistant's chart tool work on it unchanged.
+
+```
+python scripts/ccd_cli.py tests/fixtures/sample_ccd.xml          # terminal report
+python scripts/ui_cli.py --ccd PATH                              # web: "CCD documents" page (one .xml file or a folder)
+```
+
+Sections are found by LOINC code: Problems (11450-4), Allergies (48765-2), Medications (10160-0), Vital signs (8716-3), Results (30954-2), Social history (29762-2), Immunizations (11369-6), Encounters (46240-8). The reader uses the coded `entry` elements, and goes to the narrative table only to find a name an entry points at (`originalText/reference`). Codes are kept as the document gives them, with the code system shown as the usual FHIR system URI.
+
+The report also says what the reader did not take:
+- **Not mapped:** any other section (procedures, plan of treatment ...) is counted under "not shown", not dropped silently.
+- **Narrative only / nullFlavor:** a mapped section with text and no coded entries is counted as not read; a section marked `nullFlavor="NI"` is reported as the document giving no information.
+- **Statements, not list items:** "no known allergies", "no known problems", a negated entry, and a refused immunization are listed under "The document also states" and are never added to the lists.
+- **Checks:** a CCD (templateId 2.16.840.1.113883.10.20.22.1.2) is checked for the six sections the [C-CDA on FHIR CCD profile](https://hl7.org/fhir/us/ccda/StructureDefinition-Continuity-of-Care-Document.html) lists as required (allergies, medications, problems, results, social history, vital signs); other document types are read with the same mapping but not held to that list. Also checked: US Realm Header, patient id, name and birth date in the header, `nonXMLBody` documents, and entries coded in a system other than the expected one (a medication coded in NDC instead of RxNorm).
+
+Limits: medications keep name, status and start date, not dose, route or frequency; reference ranges and interpretation flags are not read; every entry in the Problems section goes on the problem list whatever its type; codes are not translated between systems; this is a reader, not a validator, so it does not check a document against the full C-CDA schematron. A document with a DOCTYPE or ENTITY declaration is refused (entity-expansion and external-entity attacks), as are files over 50 MB and UTF-16/32 files. The sample in `tests/fixtures/` is invented; the parser was also run over the public [HL7 C-CDA example documents](https://github.com/HL7/C-CDA-Examples), which are not bundled here.
+
 ### ROI request tracker (web UI)
 
 The **ROI requests** link in the web UI tracks release-of-information requests: someone asks for a patient's records, the clinic checks who they are and whether they may see them, then answers inside a deadline. Each request records the patient (one of the loaded synthetic patients), who is asking, what was requested, the date received, the due date and a dated history. Rules the tracker enforces: a request cannot be fulfilled before it is verified; a denial needs a written reason; closed requests cannot be reopened; the deadline can be extended once, on or before the due date. Open requests show days left or days overdue. The deadline is 30 calendar days by default and one 30-day extension is allowed, which follows the [HHS page on the HIPAA right of access](https://www.hhs.gov/hipaa/for-professionals/faq/2053/in-some-cases-the-30-day-timeframe/index.html); state rules can be shorter, so set `HIM_ROI_DAYS` (1 to 90) for yours. Requests are stored in `data/roi.db` on this computer (gitignored). The audit log records that an action happened, never who or what it was about. Synthetic requests only. A tracking tool, not legal advice.
@@ -300,7 +320,7 @@ Informal checks of tool use on the duplicate scan and one code search, on one Ma
 ## Layout
 
 ```
-src/him_workbench/   package code (matching, icd10, hcpcs, fhir, rxnorm, medlineplus, quality, assistant, audit, web UI)
+src/him_workbench/   package code (matching, icd10, hcpcs, fhir, cda, rxnorm, medlineplus, quality, assistant, audit, web UI)
 tests/               tests with invented fixtures only
 scripts/             data download, evaluation, CLI, and repository checks
 data/                local synthetic data (gitignored, see data/README.md)

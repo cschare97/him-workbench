@@ -27,6 +27,7 @@ from .render import result_lines
 from . import roi as roi_mod
 from .roi import RoiError, RoiStore
 from . import smart_fhir
+from . import cda
 from . import referrals as referrals_mod
 from .referrals import ReferralError, ReferralStore
 from .docsearch import NoteIndex
@@ -59,10 +60,12 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
                models_lister=None, drugs=None, education=None, patient_source: str = "",
                chart_files: dict | None = None, roi_store: RoiStore | None = None,
-               referral_store: ReferralStore | None = None, notes_embed=None, today=None) -> Flask:
+               referral_store: ReferralStore | None = None, notes_embed=None, today=None,
+               ccd_files: list | None = None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
+    ccd_files = list(ccd_files or [])
     roi = roi_store or RoiStore(":memory:")
     referrals = referral_store or ReferralStore(":memory:")
     get_today = today or date.today
@@ -435,6 +438,35 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         if name.rsplit(".", 1)[0] not in TEXTURE_NAMES:
             abort(404)
         return send_from_directory(texture_dir.resolve(), name)
+
+    # ---- C-CDA documents (local files, read-only) ----
+    @app.get("/ccd")
+    def ccd_index():
+        rows = []
+        for i, f in enumerate(ccd_files):
+            try:
+                d = cda.load_ccd(f)
+                rows.append({"i": i, "file": f.name, "title": d.meta.get("title"), "type": d.meta.get("doc_type"),
+                             "patient": f"{d.patient.first} {d.patient.last}" if d.patient else "",
+                             "created": d.meta.get("created"), "errors": sum(1 for s, _ in d.issues if s == "error"),
+                             "warnings": sum(1 for s, _ in d.issues if s == "warning"), "problem": ""})
+            except (OSError, cda.CdaError) as exc:
+                rows.append({"i": i, "file": f.name, "problem": str(exc)})
+        return render_template("ccd.html", active=None, nav="ccd", page_title="CCD documents", rows=rows, doc=None)
+
+    @app.get("/ccd/<int:i>")
+    def ccd_page(i):
+        if not 0 <= i < len(ccd_files):
+            abort(404)
+        try:
+            d = cda.load_ccd(ccd_files[i])
+        except (OSError, cda.CdaError) as exc:
+            return render_template("ccd.html", active=None, nav="ccd", page_title="CCD documents", rows=None,
+                                   doc=None, problem=str(exc), file=ccd_files[i].name, i=i)
+        return render_template("ccd.html", active=None, nav="ccd", page_title=d.meta.get("title") or "CCD document",
+                               rows=None, doc=d, problem="", file=ccd_files[i].name, i=i,
+                               act=active(d.chart.problems), past=[x for x in d.chart.problems if x.status != "active"],
+                               code_systems=[(cda.SYSTEM_NAMES.get(k, k), n) for k, n in d.code_systems.most_common()])
 
     # ---- SMART on FHIR (live sandbox, read-only) ----
     @app.get("/smart")

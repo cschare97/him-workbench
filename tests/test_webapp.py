@@ -658,3 +658,37 @@ def test_smart_disconnect_clears_the_connection(tmp_path, monkeypatch):
     assert c.post("/smart/disconnect", json={}, headers=HDR).status_code == 200
     html = c.get("/smart", headers=HDR).data
     assert b"Disconnect" not in html and b"Connect" in html
+
+
+# ---- C-CDA documents ----
+
+CCD = Path(__file__).parent / "fixtures" / "sample_ccd.xml"
+
+
+def test_ccd_index_and_page(tmp_path):
+    c = make(tmp_path, ccd_files=[CCD]).test_client()
+    idx = c.get("/ccd", headers=HDR)
+    assert idx.status_code == 200 and b"sample_ccd.xml" in idx.data and b"Patricia Sample" in idx.data
+    page = c.get("/ccd/0", headers=HDR)
+    assert page.status_code == 200
+    for want in (b"Diabetes mellitus type 2", b"Lisinopril 10 mg tablet", b"Penicillin G", b"Hemoglobin A1c",
+                 b"refused or not given", b"not mapped", b"CCD"):
+        assert want in page.data
+    assert c.get("/ccd/1", headers=HDR).status_code == 404
+
+
+def test_ccd_page_empty_and_unreadable(tmp_path):
+    assert b"--ccd PATH" in make(tmp_path).test_client().get("/ccd", headers=HDR).data
+    bad = tmp_path / "bad.xml"
+    bad.write_text("<!DOCTYPE x [<!ENTITY a 'b'>]><ClinicalDocument xmlns='urn:hl7-org:v3'/>")
+    c = make(tmp_path, ccd_files=[bad]).test_client()
+    assert b"DOCTYPE" in c.get("/ccd", headers=HDR).data and b"DOCTYPE" in c.get("/ccd/0", headers=HDR).data
+
+
+def test_ccd_text_from_the_document_is_escaped(tmp_path):
+    x = CCD.read_text().replace("<title>Continuity of Care Document (synthetic sample)</title>",
+                                "<title>&lt;script&gt;alert(1)&lt;/script&gt;</title>")
+    f = tmp_path / "x.xml"
+    f.write_text(x)
+    page = make(tmp_path, ccd_files=[f]).test_client().get("/ccd/0", headers=HDR).data
+    assert b"<script>alert(1)" not in page and b"&lt;script&gt;" in page
