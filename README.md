@@ -15,6 +15,7 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 | Data-quality report | Counts missing values and format problems (impossible dates, malformed zips, odd names) and exact same-name-and-birth-date groups. Counts only, never patient values. |
 | SMART on FHIR (live, optional) | Connects to a public SMART on FHIR sandbox over a real OAuth2 App Launch (PKCE), pulls one live synthetic test patient, and shows their chart. Read-only. See "SMART on FHIR" below. |
 | CCD / C-CDA reader | Reads a C-CDA XML document (CCD, discharge summary, referral note) into the same patient and chart the FHIR reader builds. Says how each section was read, what the document states that is not a list item, and what a CCD is missing. Local files only. See "CCD / C-CDA documents" below. |
+| HIPAA self-assessment | A Security Rule checklist (45 CFR 164 Subpart C) pointed at this project, with each claim verified against the code. Says plainly what is not met (no user accounts, no encryption at rest). Not an audit. See `docs/hipaa-self-assessment.md`. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
 
 ## Principles
@@ -220,6 +221,15 @@ The report also says what the reader did not take:
 - **Checks:** a CCD (templateId 2.16.840.1.113883.10.20.22.1.2) is checked for the six sections the [C-CDA on FHIR CCD profile](https://hl7.org/fhir/us/ccda/StructureDefinition-Continuity-of-Care-Document.html) lists as required (allergies, medications, problems, results, social history, vital signs); other document types are read with the same mapping but not held to that list. Also checked: US Realm Header, patient id, name and birth date in the header, `nonXMLBody` documents, and entries coded in a system other than the expected one (a medication coded in NDC instead of RxNorm).
 
 Limits: medications keep name, status and start date, not dose, route or frequency; reference ranges and interpretation flags are not read; every entry in the Problems section goes on the problem list whatever its type; codes are not translated between systems; this is a reader, not a validator, so it does not check a document against the full C-CDA schematron. A document with a DOCTYPE or ENTITY declaration is refused (entity-expansion and external-entity attacks), as are files over 50 MB and UTF-16/32 files. The sample in `tests/fixtures/` is invented; the parser was also run over the public [HL7 C-CDA example documents](https://github.com/HL7/C-CDA-Examples), which are not bundled here.
+
+### HIPAA Security Rule self-assessment
+
+```
+python scripts/hipaa_assessment_cli.py                                   # summary and biggest gaps
+python scripts/hipaa_assessment_cli.py --write docs/hipaa-self-assessment.md
+```
+
+Lists every standard and implementation specification in the HIPAA Security Rule (administrative, physical, technical), marks it met, partly met, not met, not applicable, or organizational (things software cannot show, such as training and contracts), and gives the evidence and the gap. Rows with checks are verified against the repo: if the code stops showing a claim, the row turns into RE-CHECK, and that includes "not met" rows (add a login and the no-authentication rows flag themselves). A test fails if the committed report drifts from the code. This project handles synthetic data only, so HIPAA does not apply to it; the report answers what would have to be true first. It is a self-assessment, not an audit or legal advice. Result today: the technical gaps are real: no user identity, no automatic logoff, no encryption at rest.
 
 ### ROI request tracker (web UI)
 
