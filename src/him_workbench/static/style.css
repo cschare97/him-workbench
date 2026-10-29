@@ -102,17 +102,29 @@ a:hover { color: #fff; }
   text-decoration: none; white-space: nowrap; padding-right: 4px;
 }
 .brand:hover { color: #fff; }
-.topnav { display: flex; align-items: stretch; height: 20px; }
-.topnav a {
-  color: var(--jelly); text-decoration: none; font-size: 14px; line-height: 20px; padding: 0 14px;
+.topnav { display: flex; align-items: stretch; height: 20px; flex: none; }
+.topnav a, .topnav summary {
+  color: var(--jelly); text-decoration: none; font-size: 14px; line-height: 20px; padding: 0 14px; white-space: nowrap;
 }
-.topnav a + a { border-left: 1px solid rgba(207, 210, 213, .28); }
+.topnav > a + a, .topnav > a + .more { border-left: 1px solid rgba(207, 210, 213, .28); }
+/* "More" holds the rarely used pages so the bar never wraps. A <details>, so it needs no script. */
+.topnav .more { position: relative; }
+.topnav .more summary { list-style: none; cursor: pointer; width: auto; text-decoration: none; }
+.topnav .more summary::-webkit-details-marker { display: none; }
+.topnav .more summary::after { content: " \25BE"; font-size: 11px; }
+.topnav .more summary:hover, .topnav .more[open] summary { color: var(--teal-light); }
+.more-panel {
+  position: absolute; top: 28px; left: 0; min-width: 170px; display: flex; flex-direction: column;
+  background: var(--char); border: 1px solid var(--hair); border-radius: 8px; padding: 6px 0; z-index: 50;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+.more-panel a { padding: 7px 16px; border: 0 !important; }
 .topnav a:hover, .topnav a[aria-current] { color: var(--teal-light); }
 .topnav a[aria-current] { text-decoration: underline; text-underline-offset: 6px; }
 
 /* prompt bar, top right */
 .ask {
-  margin-left: auto; width: min(480px, 46vw); height: 34px; display: flex; align-items: center; gap: 8px;
+  margin-left: auto; width: min(420px, 34vw); min-width: 240px; height: 34px; display: flex; align-items: center; gap: 8px;
   padding: 0 10px 0 12px; border-radius: 18px;
   background: rgba(0, 0, 0, .55); border: 1px solid #3a4c54;
 }
@@ -238,6 +250,14 @@ button.quiet:hover { border-color: var(--teal); filter: none; }
 .tool pre { margin: 6px 0 0; font: 12px/1.5 var(--mono); color: var(--jelly); white-space: pre-wrap; word-break: break-word; }
 .warn { color: var(--ember-text); }
 .busy { color: var(--jelly-dim); padding: 16px 0; }
+
+@media (max-width: 1180px) {
+  .top { gap: 14px; }
+  .brand { font-size: 22px; }
+  .topnav a, .topnav summary { padding: 0 9px; font-size: 13px; }
+  .ask { min-width: 200px; }
+  .ask kbd { display: none; }
+}
 
 @media (max-width: 860px) {
   :root { --side: 0px; }

@@ -18,10 +18,15 @@
       <a href="/search" {% if nav == 'search' %}aria-current="page"{% endif %}>Document search</a>
       <a href="/smart" {% if nav == 'smart' %}aria-current="page"{% endif %}>SMART on FHIR</a>
       <a href="/ccd" {% if nav == 'ccd' %}aria-current="page"{% endif %}>CCD documents</a>
-      <a href="/audit" {% if nav == 'audit' %}aria-current="page"{% endif %}>Audit log</a>
-      <a href="/models" {% if nav == 'models' %}aria-current="page"{% endif %}>Models</a>
-      <a href="/sources" {% if nav == 'sources' %}aria-current="page"{% endif %}>Data sources</a>
-      <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
+      <details class="more"{% if nav in ('audit', 'models', 'sources', 'about') %} open{% endif %}>
+        <summary>More</summary>
+        <div class="more-panel">
+          <a href="/audit" {% if nav == 'audit' %}aria-current="page"{% endif %}>Audit log</a>
+          <a href="/models" {% if nav == 'models' %}aria-current="page"{% endif %}>Models</a>
+          <a href="/sources" {% if nav == 'sources' %}aria-current="page"{% endif %}>Data sources</a>
+          <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
+        </div>
+      </details>
     </nav>
     <form class="ask" id="ask-form" role="search" autocomplete="off"{% if ask_patient %} data-patient="{{ ask_patient.id }}"{% endif %}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3.5h12v7H8.5L5 13.5v-3H2z" stroke-linejoin="round"/></svg>
