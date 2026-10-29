@@ -29,6 +29,7 @@ from .roi import RoiError, RoiStore
 from . import smart_fhir
 from . import cda
 from . import analytics
+from . import sync_diagnostic as sync_mod
 from . import referrals as referrals_mod
 from .referrals import ReferralError, ReferralStore
 from .docsearch import NoteIndex
@@ -62,11 +63,14 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                models_lister=None, drugs=None, education=None, patient_source: str = "",
                chart_files: dict | None = None, roi_store: RoiStore | None = None,
                referral_store: ReferralStore | None = None, notes_embed=None, today=None,
-               ccd_files: list | None = None, quality_history=None, demo_data: bool = False) -> Flask:
+               ccd_files: list | None = None, quality_history=None, demo_data: bool = False,
+               sync_data: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
     ccd_files = list(ccd_files or [])
+    if sync_data is None and demo_data:
+        sync_data = sync_mod.make_demo()[0]
     roi = roi_store or RoiStore(":memory:")
     referrals = referral_store or ReferralStore(":memory:")
     get_today = today or date.today
@@ -451,6 +455,21 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         return render_template("dashboard.html", active=None, nav="dashboard", page_title="Dashboard", d=data, geo=geo,
                                spec_max=spec_max, month_max=month_max, demo=demo_data, check_labels=CHECK_LABELS, roi_days=roi.days,
                                followup_days=referrals.followup_days)
+
+    # ---- scheduling / EHR sync diagnostic ----
+    @app.get("/sync")
+    def sync_page():
+        rep, problem = None, ""
+        if sync_data is not None:
+            try:
+                rep = sync_mod.diagnose(sync_data)
+            except sync_mod.DataError as exc:
+                problem = str(exc)
+        cap = 40
+        groups = [{"rule": r, "title": sync_mod.RULE_TITLES[r], "count": rep.counts[r], "checked": rep.checked[r],
+                   "rows": [f for f in rep.findings if f.rule == r][:cap]} for r in (sync_mod.SILENT, sync_mod.BOUNDARY, sync_mod.ARRIVAL)] if rep else []
+        return render_template("sync.html", active=None, nav="sync", page_title="Sync check", rep=rep, groups=groups, cap=cap,
+                               problem=problem, demo=demo_data, loaded=sync_data is not None)
 
     # ---- C-CDA documents (local files, read-only) ----
     @app.get("/ccd")

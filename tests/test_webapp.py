@@ -692,3 +692,14 @@ def test_ccd_text_from_the_document_is_escaped(tmp_path):
     f.write_text(x)
     page = make(tmp_path, ccd_files=[f]).test_client().get("/ccd/0", headers=HDR).data
     assert b"<script>alert(1)" not in page and b"&lt;script&gt;" in page
+
+
+def test_sync_page_empty_demo_and_bad_data(tmp_path):
+    assert b"--demo-data" in make(tmp_path).test_client().get("/sync", headers=HDR).data
+    page = make(tmp_path, demo_data=True).test_client().get("/sync", headers=HDR)
+    assert page.status_code == 200
+    for needle in (b"DEMO", b"Appointment moved without telling the patient", b"B0010", b"EHR check-in never happened"):
+        assert needle in page.data
+    assert b"Showing the first" not in page.data  # 38 findings is under the 40-row cap
+    bad = make(tmp_path, sync_data={"appointments": []}).test_client().get("/sync", headers=HDR)
+    assert b"could not be checked" in bad.data and b"missing" in bad.data

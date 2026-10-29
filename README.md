@@ -36,6 +36,9 @@ records that look wrong; it cannot say why a given system did it. The input is o
 shows the shape: `rules`, `appointments`, `changes`, `notices`, `arrivals`). Mapping a real export into that shape
 is up to you, and real patient data should not go near this project.
 
+The same checks are on the **Sync check** page (under More). Start the UI with `--demo-data` for the invented data, or
+`--sync PATH` for your own JSON file.
+
 ## Principles
 
 - **Synthetic data only.** Synthea-generated patients. No real patient data, ever.

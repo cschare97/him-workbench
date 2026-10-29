@@ -10,6 +10,7 @@
   add --ccd PATH to read C-CDA / CCD documents (one .xml file, or a folder of them); see the CCD documents page
   add --demo-data to load invented referrals, ROI requests and quality history from data/demo for the Dashboard
                    (create it first: python scripts/seed_demo_cli.py). Your real trackers are not touched.
+  add --sync PATH to check a scheduling/EHR export (JSON, see README "Sync diagnostic"); --demo-data loads invented data for it
   add --demo-dups to inject 15 known synthetic duplicates (ids start with "dup-")
   HCPCS Level II loads automatically from data/hcpcs if present (./scripts/fetch_hcpcs.sh)
 
@@ -73,6 +74,10 @@ def main() -> None:
         print("Disease education ON: codes and disease names you ask about are sent to NLM's MedlinePlus service.")
     chart_files = chart_files_from(args[args.index("--fhir") + 1]) if "--fhir" in args else {}
     ccd_files = ccd_files_from(args[args.index("--ccd") + 1]) if "--ccd" in args else []
+    sync_data = None
+    if "--sync" in args:
+        from him_workbench.sync_diagnostic import load as load_sync
+        sync_data = load_sync(args[args.index("--sync") + 1])
     demo = "--demo-data" in args
     base = "data/demo" if demo else "data"
     if demo:
@@ -80,7 +85,7 @@ def main() -> None:
     create_app(icd=icd, hcpcs=hcpcs, patients=patients, model=model, drugs=drugs, education=education, patient_source=source,
                chart_files=chart_files, ccd_files=ccd_files, roi_store=RoiStore(f"{base}/roi.db"),
                referral_store=ReferralStore(f"{base}/referrals.db"), quality_history=QualityHistory(f"{base}/quality.db"),
-               demo_data=demo).run(host="127.0.0.1", port=port)
+               demo_data=demo, sync_data=sync_data).run(host="127.0.0.1", port=port)
 
 
 if __name__ == "__main__":

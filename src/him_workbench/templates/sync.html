@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Sync check</h1></div>
+{% if demo and loaded %}<p class="warn" role="status"><strong>DEMO DATA.</strong> Invented appointments with known defects planted in them, not from any real schedule.</p>{% endif %}
+<p class="lede">Looks for three ways a patient-texting platform and the EHR drift apart. It finds records that look wrong; it cannot say why a given system did it. Synthetic data only.</p>
+{% if problem %}
+<p class="empty">This data could not be checked: {{ problem }}</p>
+{% elif not loaded %}
+<p class="empty">No data loaded. Start the page with <span class="mono">--demo-data</span> for invented data, or <span class="mono">--sync PATH</span> for a JSON file (<span class="mono">python scripts/sync_diag_cli.py --write-demo PATH</span> shows the shape).</p>
+{% else %}
+<div class="kpis">
+  {% for g in groups %}<div class="kpi"><span class="kpi-n">{{ g.count }}</span><span class="kpi-l">{{ g.title }} (of {{ g.checked }} checked)</span></div>{% endfor %}
+</div>
+{% for g in groups %}
+<h3>{{ g.title }}</h3>
+{% if not g.rows %}<p class="dim">None found.</p>
+{% else %}
+<table><thead><tr><th>Appointment</th><th>What is wrong</th><th>Detail</th></tr></thead><tbody>
+{% for f in g.rows %}<tr><td class="mono">{{ f.appt }}</td><td>{{ f.reason }}</td><td class="dim">{{ f.detail }}</td></tr>{% endfor %}
+</tbody></table>
+{% if g.count > g.rows|length %}<p class="meta">Showing the first {{ cap }} of {{ g.count }}. The command line lists all of them: <span class="mono">python scripts/sync_diag_cli.py --json</span>.</p>{% endif %}
+<p class="meta">First thing to check: {{ g.rows[0].check_first }}</p>
+{% endif %}
+{% endfor %}
+{% if rep.notes %}<h3>Notes</h3><ul>{% for n in rep.notes[:10] %}<li class="dim">{{ n }}</li>{% endfor %}</ul>{% endif %}
+{% endif %}
+{% endblock %}
