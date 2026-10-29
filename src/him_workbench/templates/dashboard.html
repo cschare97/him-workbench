@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% macro num(v, unit='') %}{% if v is none %}&ndash;{% else %}{{ '%g' % v }}{{ unit }}{% endif %}{% endmacro %}
+{% block content %}
+{% set R = d.referrals %}{% set O = d.roi %}
+<div class="page-head"><h1>Dashboard</h1><span class="meta">as of {{ d.today }}</span></div>
+{% if demo %}<p class="warn" role="status"><strong>DEMO DATA.</strong> Everything on this page is invented by a seeded generator (data/demo), not from your trackers or any real record.</p>{% endif %}
+<p class="lede">Turnaround for specialty referrals, release-of-information requests against their deadline, and data quality over time. Counts, dates and categories only: no patient identifiers.</p>
+
+<h2 class="viz-h">Referral turnaround</h2>
+{% if not R.total %}<p class="empty">No referrals yet. Log some on the Referrals page, or start the app with <span class="mono">--demo-data</span>.</p>{% else %}
+<div class="kpis">
+  <div class="kpi"><span class="kpi-n">{{ R.total }}</span><span class="kpi-l">referrals</span></div>
+  <div class="kpi"><span class="kpi-n">{{ R.open }}</span><span class="kpi-l">open</span></div>
+  <div class="kpi"><span class="kpi-n">{{ R.no_response }}</span><span class="kpi-l">no response (sent, untouched &gt; {{ followup_days }} days)</span></div>
+  <div class="kpi"><span class="kpi-n">{{ num(R.median_days_to_schedule) }}</span><span class="kpi-l">median days, sent to scheduled</span></div>
+  <div class="kpi"><span class="kpi-n">{{ num(R.median_days_to_complete) }}</span><span class="kpi-l">median days, sent to completed</span></div>
+</div>
+<h3>Median days from sent to scheduled, by specialty</h3>
+<div class="hbars" role="img" aria-label="Median days from sent to scheduled, by specialty">
+{% for r in R.by_specialty %}{% if r.median_days_to_schedule is not none %}
+  <div class="hbar-row" title="{{ r.specialty }}: median {{ '%g' % r.median_days_to_schedule }} days to schedule, {{ r.n }} referrals, {{ r.no_response }} with no response">
+    <span class="hbar-label">{{ r.specialty }}</span>
+    <span class="hbar-track"><span class="hbar-fill" style="width: {{ (100 * r.median_days_to_schedule / spec_max)|round(1) }}%"></span></span>
+    <span class="hbar-val">{{ '%g' % r.median_days_to_schedule }}</span>
+  </div>{% endif %}{% endfor %}
+</div>
+<details><summary>Show as a table</summary>
+<table><thead><tr><th>Specialty</th><th class="num">Referrals</th><th class="num">Median days to schedule</th><th class="num">No response</th></tr></thead><tbody>
+{% for r in R.by_specialty %}<tr><td>{{ r.specialty }}</td><td class="num">{{ r.n }}</td><td class="num">{{ num(r.median_days_to_schedule) }}</td><td class="num">{{ r.no_response }}</td></tr>{% endfor %}
+</tbody></table></details>
+<p class="dim">Medians skip referrals that were never scheduled, so a stalled referral does not count as zero days. Those show up in "no response".</p>
+{% endif %}
+
+<h2 class="viz-h">ROI requests against the {{ roi_days }}-day deadline</h2>
+{% if not O.total %}<p class="empty">No ROI requests yet. Log some on the ROI page, or start the app with <span class="mono">--demo-data</span>.</p>{% else %}
+<div class="kpis">
+  <div class="kpi"><span class="kpi-n">{{ O.total }}</span><span class="kpi-l">requests</span></div>
+  <div class="kpi"><span class="kpi-n">{{ O.open }}</span><span class="kpi-l">open</span></div>
+  <div class="kpi"><span class="kpi-n">{{ O.overdue }}</span><span class="kpi-l">overdue now</span></div>
+  <div class="kpi"><span class="kpi-n">{{ num(O.on_time_pct|round(0) if O.on_time_pct is not none else none, '%') }}</span><span class="kpi-l">closed on time ({{ O.closed_on_time }} of {{ O.closed }})</span></div>
+  <div class="kpi"><span class="kpi-n">{{ num(O.median_days_to_close) }}</span><span class="kpi-l">median days to close</span></div>
+</div>
+<h3>Requests closed per month, on time and late</h3>
+<div class="legend" aria-hidden="true"><span class="sw s1"></span>On time <span class="sw s2"></span>Late</div>
+<div class="cols" role="img" aria-label="Requests closed per month, on time and late">
+{% for m in d.roi_months %}
+  <div class="col" title="{{ m.month }}: {{ m.on_time }} on time, {{ m.late }} late">
+    <span class="col-stack" style="height: {{ (100 * (m.on_time + m.late) / month_max)|round(1) }}%">
+      {% if m.late %}<span class="seg s2" style="flex: {{ m.late }}"></span>{% endif %}<span class="seg s1" style="flex: {{ m.on_time }}"></span>
+    </span>
+    <span class="col-label">{{ m.month[5:] }}</span>
+  </div>{% endfor %}
+</div>
+<details><summary>Show as a table</summary>
+<table><thead><tr><th>Month closed</th><th class="num">On time</th><th class="num">Late</th></tr></thead><tbody>
+{% for m in d.roi_months %}<tr><td class="mono">{{ m.month }}</td><td class="num">{{ m.on_time }}</td><td class="num">{{ m.late }}</td></tr>{% endfor %}
+</tbody></table></details>
+<p class="dim">On time means closed on or before the due date in force; one extension moves it. The deadline is the tracker's setting (HIM_ROI_DAYS), not legal advice.</p>
+{% endif %}
+
+<h2 class="viz-h">Data quality over time</h2>
+{% if not d.quality %}<p class="empty">No quality snapshots yet. Record one with <span class="mono">python scripts/quality_report.py --snapshot</span>, or start the app with <span class="mono">--demo-data</span>.</p>{% else %}
+{% set L = d.quality_latest %}
+<div class="kpis">
+  <div class="kpi"><span class="kpi-n">{{ L.records }}</span><span class="kpi-l">records in latest snapshot ({{ L.day }})</span></div>
+  <div class="kpi"><span class="kpi-n">{{ '%.1f' % L.problems_per_100 }}</span><span class="kpi-l">format problems per 100 records</span></div>
+  <div class="kpi"><span class="kpi-n">{{ '%.1f' % L.missing_per_100 }}</span><span class="kpi-l">missing values per 100 records</span></div>
+  <div class="kpi"><span class="kpi-n">{{ d.quality|length }}</span><span class="kpi-l">snapshots</span></div>
+</div>
+<h3>Format problems per 100 records</h3>
+<svg class="line" viewBox="0 0 {{ geo.w }} {{ geo.h }}" role="img" aria-label="Format problems per 100 records over {{ d.quality|length }} snapshots, from {{ geo.points[0].value }} to {{ geo.points[-1].value }}">
+  {% for t in geo.ticks %}<line class="grid" x1="{{ geo.left }}" x2="{{ geo.w - geo.right }}" y1="{{ t.y }}" y2="{{ t.y }}"/>
+  <text class="axis" x="{{ geo.left - 6 }}" y="{{ t.y + 4 }}" text-anchor="end">{{ '%g' % t.value }}</text>{% endfor %}
+  {% if geo.points|length > 1 %}<polyline class="ln" points="{{ geo.poly }}"/>{% endif %}
+  {% for p in geo.points %}<circle class="dot" cx="{{ p.x }}" cy="{{ p.y }}" r="{{ 4.5 if loop.last else 3 }}"><title>{{ p.label }}: {{ p.value }} per 100 records</title></circle>{% endfor %}
+  {% set last = geo.points[-1] %}<text class="endlabel" x="{{ last.x + 9 }}" y="{{ last.y + 4 }}">{{ last.value }}</text>
+  <text class="axis" x="{{ geo.points[0].x }}" y="{{ geo.h - 6 }}" text-anchor="start">{{ geo.points[0].label }}</text>
+  <text class="axis" x="{{ last.x }}" y="{{ geo.h - 6 }}" text-anchor="end">{{ last.label }}</text>
+</svg>
+<details><summary>Latest snapshot by check</summary>
+<table><thead><tr><th>Check</th><th class="num">Records affected</th></tr></thead><tbody>
+{% for k, v in L.problems.items() %}<tr><td>{{ check_labels[k] }}</td><td class="num">{{ v }}</td></tr>{% endfor %}
+</tbody></table></details>
+<p class="dim">Adds up the per-check counts; one record can trip several checks, so this is a trend indicator, not a percentage of records. Snapshots hold counts only.</p>
+{% endif %}
+{% endblock %}

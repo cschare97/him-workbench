@@ -1,6 +1,8 @@
 """Data-quality report on a Synthea patients.csv. Prints counts only, never patient values.
 
-  python scripts/quality_report.py [path/to/patients.csv] [--json]
+  python scripts/quality_report.py [path/to/patients.csv] [--json] [--snapshot]
+
+--snapshot also saves today's counts to data/quality.db, so the Dashboard can show the trend over time.
 """
 
 import csv
@@ -8,6 +10,7 @@ import json
 import sys
 from pathlib import Path
 
+from him_workbench.analytics import QualityHistory
 from him_workbench.matching import Patient
 from him_workbench.quality import analyze
 
@@ -36,6 +39,9 @@ def main() -> None:
         sys.exit(f"{path} not found. Run ./scripts/generate_synthea.sh first.")
     report = analyze(load_raw(path))
     print(json.dumps(report.to_dict(), indent=2) if "--json" in sys.argv else report.text())
+    if "--snapshot" in sys.argv:
+        QualityHistory("data/quality.db").record(report)
+        print("\nSnapshot saved to data/quality.db (counts only).")
 
 
 if __name__ == "__main__":

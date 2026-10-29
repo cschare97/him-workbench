@@ -12,6 +12,7 @@
     <a class="brand" href="/patients">HIM Workbench</a>
     <nav class="topnav" aria-label="Settings and information">
       <a href="/patients" {% if active %}aria-current="page"{% endif %}>Home</a>
+      <a href="/dashboard" {% if nav == 'dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
       <a href="/roi" {% if nav == 'roi' %}aria-current="page"{% endif %}>ROI requests</a>
       <a href="/referrals" {% if nav == 'referrals' %}aria-current="page"{% endif %}>Referrals</a>
       <a href="/search" {% if nav == 'search' %}aria-current="page"{% endif %}>Document search</a>

@@ -28,6 +28,7 @@ from . import roi as roi_mod
 from .roi import RoiError, RoiStore
 from . import smart_fhir
 from . import cda
+from . import analytics
 from . import referrals as referrals_mod
 from .referrals import ReferralError, ReferralStore
 from .docsearch import NoteIndex
@@ -61,7 +62,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                models_lister=None, drugs=None, education=None, patient_source: str = "",
                chart_files: dict | None = None, roi_store: RoiStore | None = None,
                referral_store: ReferralStore | None = None, notes_embed=None, today=None,
-               ccd_files: list | None = None) -> Flask:
+               ccd_files: list | None = None, quality_history=None, demo_data: bool = False) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
     chart_files = chart_files or {}
@@ -438,6 +439,18 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         if name.rsplit(".", 1)[0] not in TEXTURE_NAMES:
             abort(404)
         return send_from_directory(texture_dir.resolve(), name)
+
+    # ---- dashboard (referrals, ROI, data quality over time) ----
+    @app.get("/dashboard")
+    def dashboard_page():
+        data = analytics.dashboard_data(referrals, roi, quality_history, get_today())
+        q = data["quality"]
+        geo = analytics.line_geometry([s["problems_per_100"] for s in q], [s["day"] for s in q])
+        spec_max = max([r["median_days_to_schedule"] or 0 for r in data["referrals"]["by_specialty"]] or [1]) or 1
+        month_max = max([m["on_time"] + m["late"] for m in data["roi_months"]] or [1]) or 1
+        return render_template("dashboard.html", active=None, nav="dashboard", page_title="Dashboard", d=data, geo=geo,
+                               spec_max=spec_max, month_max=month_max, demo=demo_data, check_labels=CHECK_LABELS, roi_days=roi.days,
+                               followup_days=referrals.followup_days)
 
     # ---- C-CDA documents (local files, read-only) ----
     @app.get("/ccd")

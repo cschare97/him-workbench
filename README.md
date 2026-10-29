@@ -16,6 +16,7 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 | SMART on FHIR (live, optional) | Connects to a public SMART on FHIR sandbox over a real OAuth2 App Launch (PKCE), pulls one live synthetic test patient, and shows their chart. Read-only. See "SMART on FHIR" below. |
 | CCD / C-CDA reader | Reads a C-CDA XML document (CCD, discharge summary, referral note) into the same patient and chart the FHIR reader builds. Says how each section was read, what the document states that is not a list item, and what a CCD is missing. Local files only. See "CCD / C-CDA documents" below. |
 | HIPAA self-assessment | A Security Rule checklist (45 CFR 164 Subpart C) pointed at this project, with each claim verified against the code. Says plainly what is not met (no user accounts, no encryption at rest). Not an audit. See `docs/hipaa-self-assessment.md`. |
+| Dashboard | Referral turnaround, ROI requests against the 30-day deadline, and data quality over time. A web page plus CSV export and a guide for rebuilding it in Power BI. Runs on invented demo data until you have your own. See "Dashboard and Power BI" below. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
 
 ## Principles
@@ -230,6 +231,19 @@ python scripts/hipaa_assessment_cli.py --write docs/hipaa-self-assessment.md
 ```
 
 Lists every standard and implementation specification in the HIPAA Security Rule (administrative, physical, technical), marks it met, partly met, not met, not applicable, or organizational (things software cannot show, such as training and contracts), and gives the evidence and the gap. Rows with checks are verified against the repo: if the code stops showing a claim, the row turns into RE-CHECK, and that includes "not met" rows (add a login and the no-authentication rows flag themselves). A test fails if the committed report drifts from the code. This project handles synthetic data only, so HIPAA does not apply to it; the report answers what would have to be true first. It is a self-assessment, not an audit or legal advice. Result today: the technical gaps are real: no user identity, no automatic logoff, no encryption at rest.
+
+### Dashboard and Power BI
+
+```
+python scripts/seed_demo_cli.py            # invented demo data in data/demo (never touches your real trackers)
+python scripts/ui_cli.py --demo-data       # Dashboard page on the demo data
+python scripts/quality_report.py --snapshot  # save today's data-quality counts, so the trend builds from real runs
+python scripts/export_dashboard_cli.py     # CSV tables for Power BI from your real trackers (add --demo for the demo data)
+```
+
+The **Dashboard** page shows median days from referral sent to scheduled by specialty, stalled referrals, ROI requests closed on time and late per month against the deadline, and format problems per 100 records over time. Every chart has a table view. The page, the CSV export and `docs/power-bi.md` (model, relationships, DAX measures, page layout) all come from the same tables in `analytics.py`, so a Power BI build can be reconciled against the page. Files hold dates, counts and categories only, never patient ids or free text.
+
+Demo data is invented by a seeded generator and the page says **DEMO DATA** whenever it is loaded. The falling data-quality trend in it is put there on purpose. The DAX in the guide has not been run in Power BI, which needs Windows, so check each measure against the page.
 
 ### ROI request tracker (web UI)
 
