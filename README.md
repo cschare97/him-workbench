@@ -17,7 +17,24 @@ Local-first tools for Health Information Management (HIM) work: find possible du
 | CCD / C-CDA reader | Reads a C-CDA XML document (CCD, discharge summary, referral note) into the same patient and chart the FHIR reader builds. Says how each section was read, what the document states that is not a list item, and what a CCD is missing. Local files only. See "CCD / C-CDA documents" below. |
 | HIPAA self-assessment | A Security Rule checklist (45 CFR 164 Subpart C) pointed at this project, with each claim verified against the code. Says plainly what is not met (no user accounts, no encryption at rest). Not an audit. See `docs/hipaa-self-assessment.md`. |
 | Dashboard | Referral turnaround, ROI requests against the 30-day deadline, and data quality over time. A web page plus CSV export and a guide for rebuilding it in Power BI. Runs on invented demo data until you have your own. See "Dashboard and Power BI" below. |
+| Sync diagnostic | Looks for three ways a patient-texting platform and an EHR drift apart: appointments moved without telling the patient, bookings the clinic's own rules would not allow, and an "I'm here" text that never checks the patient in or alerts the back office. Invented data only; generic, not tied to a vendor. See "Sync diagnostic" below. |
 | Audit log | Every tool call is appended to `logs/audit.jsonl`: tool name and counts only, never patient data or question text. |
+
+## Sync diagnostic
+
+`python scripts/sync_diag_cli.py --demo` generates invented appointment data with known defects planted in it and
+reports what it finds. Each of the three rules has a test that the planted defects, and only those, are found.
+
+| Rule | Flags |
+|---|---|
+| Silent reschedule | A time changed by staff or the system with no reschedule notice to the patient within 60 minutes. Moves the patient made themselves are not flagged. |
+| Boundary | A booking outside clinic hours, with a provider who is off that day, for a visit type that provider does not see, or overlapping (or too close to) another visit for the same provider. |
+| Arrival | An arrival text with no EHR check-in, no back-office alert, or either one more than 5 minutes late. |
+
+Each finding gives the appointment id, what is wrong, the times, and one generic thing to check first. It finds
+records that look wrong; it cannot say why a given system did it. The input is one JSON file (`--write-demo PATH`
+shows the shape: `rules`, `appointments`, `changes`, `notices`, `arrivals`). Mapping a real export into that shape
+is up to you, and real patient data should not go near this project.
 
 ## Principles
 
