@@ -3,6 +3,7 @@
   python scripts/export_dashboard_cli.py --demo                  # from data/demo  -> data/dashboard-demo
   python scripts/export_dashboard_cli.py                         # from your real trackers -> data/dashboard
   python scripts/export_dashboard_cli.py --out some/folder
+  add --queries "C:\\path\\to\\powerbi.xlsx" to write power-query.txt: paste-in Power Query for each table (path as Windows sees it)
   add --xlsx to also write powerbi.xlsx (one sheet per table, typed columns; easiest to load in Power BI).
                  needs: pip install -e ".[powerbi]"
 
@@ -34,6 +35,14 @@ def main() -> int:
             print(f"error: {e}", file=sys.stderr)
             return 2
         print(f"Wrote {out}/powerbi.xlsx")
+    if "--queries" in args:
+        from him_workbench.analytics import power_query_text
+        winpath = args[args.index("--queries") + 1]
+        text = power_query_text(out, winpath)
+        with open(f"{out}/power-query.txt", "w", encoding="utf-8") as f:
+            for name, m in text.items():
+                f.write(f"==================== {name} ====================\n{m}\n")
+        print(f"Wrote {out}/power-query.txt  (Power Query text for each table)")
     return 0
 
 
