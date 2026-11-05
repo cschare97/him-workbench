@@ -540,17 +540,19 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
 
     @app.get("/smart/callback")
     def smart_callback():
+        # A GET carrying a localhost Host header can be fired by any web page the browser visits, so
+        # nothing below may change state or show text unless the request carries the one-time `state`
+        # issued by /smart/connect. A real sandbox error echoes that state too (RFC 6749 4.1.2.1), so it
+        # still gets through; a forged one is ignored, and cannot cancel a launch that is in progress.
         pending = st.smart["pending"]
+        got = request.args.get("state", "")
+        if not pending or not secrets.compare_digest(got.encode(), pending["state"].encode()):
+            return redirect("/smart")
         err = request.args.get("error")
         if err:
             with lock:
-                st.smart["error"] = f"The sandbox declined the launch: {err} — " + request.args.get(
-                    "error_description", "(no further detail given)")
-                st.smart["pending"] = None
-            return redirect("/smart")
-        if not pending or request.args.get("state") != pending["state"]:
-            with lock:
-                st.smart["error"] = "This connection attempt expired or did not match. Try connecting again."
+                st.smart["error"] = (f"The sandbox declined the launch: {err[:100]} — "
+                                     + request.args.get("error_description", "(no further detail given)")[:300])
                 st.smart["pending"] = None
             return redirect("/smart")
         code = request.args.get("code")

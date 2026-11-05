@@ -202,14 +202,15 @@ def _controls() -> list[Control]:
           checks=[NO_AUTH, HOST_GUARD, has("src/him_workbench/webapp.py", "abort(415)"), tests_named("lookalike|foreign_host", 2)]),
         C("164.312(e)(1)", "Transmission security", "Integrity controls (A), encryption (A)", "A", PARTIAL, area=T_,
           evidence="The web UI talks over plain HTTP, but only on the loopback interface, so it does not cross a network. Optional "
-                   "outside lookups use HTTPS. Responses carry a Content-Security-Policy, no-store and nosniff.",
-          gap="If the host binding were changed to a LAN address there would be no TLS. The SMART server URL can be overridden "
-              "by an environment variable and is not forced to HTTPS in code, so an http:// override would send the bearer token in clear.",
+                   "outside lookups use HTTPS. The SMART server URL and the endpoints it advertises must be https:// (loopback "
+                   "excepted) before a code or bearer token is sent. Responses carry a Content-Security-Policy, no-store and nosniff.",
+          gap="If the host binding were changed to a LAN address there would be no TLS.",
           checks=[LOOPBACK, has("src/him_workbench/medlineplus.py", 'BASE = "https://'),
                   has("src/him_workbench/rxnorm.py", 'BASE = "https://'),
                   has("src/him_workbench/webapp.py", "Content-Security-Policy"),
                   has("src/him_workbench/smart_fhir.py", 'DEFAULT_ISS = "https://'),
-                  lacks(("src/him_workbench/smart_fhir.py",), r"startswith\(.https")]),
+                  has("src/him_workbench/smart_fhir.py", "def _require_https"),
+                  tests_named("require_https|rejects_plain_http", 2)]),
 
         # ---------- 164.314 and 164.316 ----------
         C("164.314(a)", "Organizational requirements", "Business associate contracts or other arrangements", "R", NA, area=O_,

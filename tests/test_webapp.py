@@ -590,11 +590,11 @@ def test_smart_connect_surfaces_a_discovery_failure_without_crashing(tmp_path, m
     assert b"could not reach the sandbox" in html
 
 
-def test_smart_callback_without_a_pending_launch_is_rejected(client):
+def test_smart_callback_without_a_pending_launch_is_ignored(client):
     r = client.get("/smart/callback?code=x&state=y", headers=HDR)
-    assert r.status_code == 302
+    assert r.status_code == 302 and r.headers["Location"] == "/smart"
     html = client.get("/smart", headers=HDR).data
-    assert b"expired or did not match" in html
+    assert b"Disconnect" not in html and b"declined" not in html
 
 
 def test_smart_callback_completes_the_connection_and_shows_the_live_chart(tmp_path, monkeypatch):
@@ -629,14 +629,42 @@ def test_smart_callback_rejects_a_mismatched_state(tmp_path, monkeypatch):
     r = c.get("/smart/callback?code=abc&state=not-the-real-state", headers=HDR)
     assert r.status_code == 302
     html = c.get("/smart", headers=HDR).data
-    assert b"expired or did not match" in html and b"Disconnect" not in html
+    assert b"Disconnect" not in html
 
 
-def test_smart_callback_surfaces_a_sandbox_error_param(client):
-    r = client.get("/smart/callback?error=access_denied&error_description=user+said+no", headers=HDR)
+def _start_launch(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    monkeypatch.setattr(smart_fhir, "discover", lambda server: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "https://sandbox.example/token"})
+    c = make(tmp_path).test_client()
+    connect = c.get("/smart/connect", headers=HDR)
+    return c, re.search(r"state=([^&]+)", connect.headers["Location"]).group(1)
+
+
+def test_smart_callback_surfaces_a_sandbox_error_that_carries_our_state(tmp_path, monkeypatch):
+    c, state = _start_launch(tmp_path, monkeypatch)
+    r = c.get(f"/smart/callback?error=access_denied&error_description=user+said+no&state={state}", headers=HDR)
     assert r.status_code == 302
+    html = c.get("/smart", headers=HDR).data
+    assert b"access_denied" in html and b"user said no" in html
+
+
+def test_smart_callback_ignores_a_forged_error_with_no_pending_launch(client):
+    client.get("/smart/callback?error=x&error_description=Your+session+expired+call+555-0100", headers=HDR)
     html = client.get("/smart", headers=HDR).data
-    assert b"access_denied" in html
+    assert b"555-0100" not in html and b"declined" not in html
+
+
+def test_smart_callback_forged_error_does_not_cancel_a_launch_in_progress(tmp_path, monkeypatch):
+    from him_workbench import smart_fhir
+    monkeypatch.setattr(smart_fhir, "exchange_code", lambda *a, **kw: {"access_token": "tok123", "patient": "p1"})
+    monkeypatch.setattr(smart_fhir, "fetch_chart", lambda server, pid, token: (None, smart_fhir.Chart(patient_id="p1")))
+    c, state = _start_launch(tmp_path, monkeypatch)
+    c.get("/smart/callback?error=access_denied&error_description=forged&state=wrong", headers=HDR)
+    c.get("/smart/callback?error=access_denied&error_description=forged", headers=HDR)
+    assert b"forged" not in c.get("/smart", headers=HDR).data
+    c.get(f"/smart/callback?code=abc&state={state}", headers=HDR)   # the real launch still completes
+    assert b"Disconnect" in c.get("/smart", headers=HDR).data
 
 
 def test_smart_disconnect_clears_the_connection(tmp_path, monkeypatch):

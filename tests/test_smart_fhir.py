@@ -98,3 +98,51 @@ def test_iss_and_client_id_read_env_overrides(monkeypatch):
     monkeypatch.setenv("HIM_SMART_CLIENT_ID", "another-client")
     assert smart_fhir.iss() == "https://other.example/fhir"
     assert smart_fhir.client_id() == "another-client"
+
+
+def _no_network(monkeypatch):
+    def boom(*a, **kw):
+        raise AssertionError("a request was made to a non-https URL")
+    monkeypatch.setattr(smart_fhir, "_get_json", boom)
+    monkeypatch.setattr(smart_fhir, "_post_form", boom)
+
+
+def test_discover_rejects_plain_http_server_before_any_request(monkeypatch):
+    _no_network(monkeypatch)
+    with pytest.raises(SmartError, match="https"):
+        smart_fhir.discover("http://sandbox.example/fhir")
+
+
+def test_discover_rejects_plain_http_endpoints_from_the_config(monkeypatch):
+    monkeypatch.setattr(smart_fhir, "_get_json", lambda url, *a, **kw: {
+        "authorization_endpoint": "https://sandbox.example/auth", "token_endpoint": "http://sandbox.example/token"})
+    with pytest.raises(SmartError, match="token_endpoint"):
+        smart_fhir.discover("https://sandbox.example/fhir")
+
+
+def test_discover_rejects_non_string_endpoints(monkeypatch):
+    monkeypatch.setattr(smart_fhir, "_get_json", lambda url, *a, **kw: {
+        "authorization_endpoint": ["https://x"], "token_endpoint": "https://sandbox.example/token"})
+    with pytest.raises(SmartError, match="authorization_endpoint"):
+        smart_fhir.discover("https://sandbox.example/fhir")
+
+
+def test_discover_accepts_plain_http_only_for_loopback(monkeypatch):
+    monkeypatch.setattr(smart_fhir, "_get_json", lambda url, *a, **kw: {
+        "authorization_endpoint": "http://localhost:8080/auth", "token_endpoint": "http://127.0.0.1:8080/token"})
+    assert smart_fhir.discover("http://localhost:8080/fhir")["token_endpoint"] == "http://127.0.0.1:8080/token"
+    with pytest.raises(SmartError):
+        smart_fhir.discover("http://localhost.evil.example/fhir")   # look-alike host is not loopback
+
+
+def test_exchange_code_rejects_plain_http_token_endpoint(monkeypatch):
+    _no_network(monkeypatch)
+    with pytest.raises(SmartError, match="https"):
+        smart_fhir.exchange_code("http://sandbox.example/token", code="c1",
+                                 redirect_uri="http://127.0.0.1:5050/smart/callback", cid="x", code_verifier="v")
+
+
+def test_fetch_chart_rejects_plain_http_server_so_the_token_never_leaves(monkeypatch):
+    _no_network(monkeypatch)
+    with pytest.raises(SmartError, match="https"):
+        smart_fhir.fetch_chart("http://sandbox.example/fhir", "p1", "tok123")
