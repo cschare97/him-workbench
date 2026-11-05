@@ -63,6 +63,18 @@ def client_id() -> str:
     return os.environ.get("HIM_SMART_CLIENT_ID", DEFAULT_CLIENT_ID)
 
 
+_LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+
+
+def _require_https(url, what: str) -> str:
+    """Authorization codes and bearer tokens must not cross a network in the clear. Plain http is
+    accepted only for a loopback host (a sandbox running on this machine)."""
+    parts = urllib.parse.urlsplit(url) if isinstance(url, str) else None
+    if parts and (parts.scheme == "https" or (parts.scheme == "http" and parts.hostname in _LOOPBACK)):
+        return url
+    raise SmartError(f"{what} must use https:// (plain http is only accepted for localhost), got {url!r}")
+
+
 def _get_json(url: str, token: str | None = None, timeout: int = 15) -> dict:
     headers = {"Accept": "application/fhir+json, application/json"}
     if token:
@@ -82,11 +94,14 @@ def _get_json(url: str, token: str | None = None, timeout: int = 15) -> dict:
 def discover(server: str) -> dict:
     """{authorization_endpoint, token_endpoint}, read from the server's own smart-configuration —
     never hardcoded, since that's the one part of this flow a sandbox fully controls itself."""
+    _require_https(server, "the FHIR server URL (HIM_SMART_ISS)")
     conf = _get_json(server.rstrip("/") + "/.well-known/smart-configuration")
     auth, token = conf.get("authorization_endpoint"), conf.get("token_endpoint")
     if not auth or not token:
         raise SmartError("this FHIR server's smart-configuration has no authorization_endpoint/"
                          "token_endpoint — it may not support SMART App Launch")
+    _require_https(auth, "the server's authorization_endpoint")
+    _require_https(token, "the server's token_endpoint")
     return {"authorization_endpoint": auth, "token_endpoint": token}
 
 
@@ -124,6 +139,7 @@ def exchange_code(token_endpoint: str, *, code: str, redirect_uri: str, cid: str
                   timeout: int = 15) -> dict:
     """POST the authorization code for a token. Returns the token response as given (access_token,
     patient, scope, expires_in, ...) — callers decide what they need from it."""
+    _require_https(token_endpoint, "the token endpoint")
     return _post_form(token_endpoint, {"grant_type": "authorization_code", "code": code,
                                        "redirect_uri": redirect_uri, "client_id": cid,
                                        "code_verifier": code_verifier}, timeout=timeout)
@@ -133,6 +149,7 @@ def fetch_chart(server: str, patient_id: str, token: str) -> tuple[Patient | Non
     """Read-only live fetch of one patient's chart from the connected FHIR server, built through the
     same chart_from_resources() used for a local Synthea bundle — only where the resources come from
     differs. Raises SmartError on any failed read; never returns a partial chart silently."""
+    _require_https(server, "the FHIR server URL")
     base = server.rstrip("/")
     pres = _get_json(f"{base}/Patient/{patient_id}", token)
     patient, _ = patient_from_fhir(pres)

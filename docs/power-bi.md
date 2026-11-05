@@ -4,7 +4,7 @@ The web Dashboard (`/dashboard`) and these CSV files come from the same tables i
 
 **Demo data only unless you point it at your own trackers.** The demo files are invented by a seeded generator (`src/him_workbench/demo_data.py`). The improving data-quality trend in them is put there on purpose. Do not present it as a real result.
 
-**Not tested here.** Power BI Desktop runs on Windows only, and this was written where it can't run. The CSVs and the numbers they hold are tested. The DAX below is written to standard patterns but has not been run in Power BI, so reconcile each measure against the web Dashboard (last section) before you trust it.
+**Tested in Power BI Desktop (Windows, via Parallels) on the demo data.** Every measure below was built and checked against figures worked out separately from the CSVs: Referrals 160, Open Referrals 39, No Response 11, Median Days to Schedule 13, Median Days to Complete 25, ROI Requests 90, ROI Open 3, ROI Overdue 0, ROI Closed 87, Closed On Time 76, On-Time % 0.87, Median Days to Close 18. The two close-date measures (inactive relationship) matched month by month, and the quality line matched all 12 snapshots (14.5 down to 5.0, peak 16.0 on Aug 19). The page layouts in section 5 were not all built; the month chart and the trend line were. Not covered: refresh from a changed export, and your own (non-demo) data.
 
 ## 1. Make the files
 
@@ -79,6 +79,8 @@ Problems per 100 Records =
         MAX ( quality_snapshots[records] )
     ) * 100
 ```
+
+Two things the testing turned up: a card of **Problems per 100 Records** with no date in view shows 116.5 (all 12 snapshots added up), so always show it by `snapshot_date`; and a measure lands in whichever table was selected when you created it, which is harmless but untidy (Measure tools > Home table moves it).
 
 `MEDIAN` skips blanks, which is what you want: a referral that was never scheduled is not zero days. "Problems per 100 Records" adds the per-check counts, and one record can trip several checks, so it is a trend indicator, not a share of records. Over a date range it is not meaningful, only per snapshot.
 

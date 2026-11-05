@@ -47,6 +47,16 @@ follow-up window. That is the failure mode worth catching — a referral that we
 never followed up on, not one that is simply waiting on a far-out appointment (which is
 "Scheduled," not flagged).
 
+## Beyond what the tool enforces: confirm the report came back
+
+**Completed** in this tool means the visit happened. It does not mean the specialist's report
+reached the referring provider, and the tool does not track that. Public referral-safety
+guidance treats the report coming back as the step that actually closes the loop, so in real
+practice someone should confirm it (and put it in the chart) before considering the referral
+done. A tracker that stops at "visit happened" can show a referral as finished while the
+referring provider still has nothing to act on. Adding a "report received" status is a possible
+future change; today it is a manual step outside the tool.
+
 ## Fields reference
 
 | Field | Required | Notes |
@@ -67,3 +77,16 @@ never followed up on, not one that is simply waiting on a far-out appointment (w
 
 This tool does not read from or write to any EHR's own referral or transaction tables
 (OpenEMR's included) — it is a standalone synthetic tracker. It is not legal or billing advice.
+
+
+## References
+
+Public sources for the closed-loop idea; none of them are an employer document.
+
+- CMS, *Closing the Referral Loop: Receipt of Specialist Report* (CMS50, MIPS Quality ID 374), eCQM
+  specification: <https://ecqi.healthit.gov/sites/default/files/ecqm/measures/CMS50-v14.0.000-QDM.html>
+- Institute for Healthcare Improvement / National Patient Safety Foundation (2017), *Closing the Loop:
+  A Guide to Safer Ambulatory Referrals in the EHR Era*:
+  <https://www.ihi.org/resources/Pages/Publications/Closing-the-Loop-A-Guide-to-Safer-Ambulatory-Referrals.aspx>
+- Patel et al. (2018), *Closing the Referral Loop: an Analysis of Primary Care Referrals to Specialists
+  in a Large Health System*, J Gen Intern Med 33(5): <https://doi.org/10.1007/s11606-018-4392-z>

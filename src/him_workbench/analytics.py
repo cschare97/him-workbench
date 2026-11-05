@@ -286,6 +286,29 @@ def export_xlsx(out_dir: str | Path, name: str = "powerbi.xlsx") -> dict[str, in
     return counts
 
 
+def power_query_text(out_dir: str | Path, xlsx_path: str) -> dict[str, str]:
+    """Power Query (M) for each table in the CSVs under `out_dir`: read the sheet from the workbook at `xlsx_path`
+    (the path as Windows sees it), use the first row as headers, and set every column's type. Returns {table: text}.
+    Paste each into that table's Advanced Editor, so nothing is clicked or guessed in Power Query."""
+    out = {}
+    for f in sorted(Path(out_dir).glob("*.csv")):
+        with f.open(newline="", encoding="utf-8") as fh:
+            rows = list(csv.reader(fh))
+        header, body = rows[0], rows[1:]
+        steps = []
+        for i, name in enumerate(header):
+            col = _typed([r[i] if i < len(r) else "" for r in body])
+            first = next((v for v in col if v is not None), None)
+            kind = ("type date" if isinstance(first, date) else "Int64.Type" if isinstance(first, int)
+                    else "type number" if isinstance(first, float) else "type text")
+            steps.append(f'{{"{name}", {kind}}}')
+        path = xlsx_path.replace('"', '""')
+        out[f.stem] = (f'let\n    Source = Excel.Workbook(File.Contents("{path}"), true, true),\n'
+                       f'    Sheet = Source{{[Item="{f.stem}", Kind="Sheet"]}}[Data],\n'
+                       f'    Typed = Table.TransformColumnTypes(Sheet, {{{", ".join(steps)}}})\nin\n    Typed\n')
+    return out
+
+
 def line_geometry(values: list[float], labels: list[str], w: int = 640, h: int = 190, left: int = 38, right: int = 48,
                   top: int = 14, bottom: int = 26) -> dict:
     """Pixel positions for a one-series line chart that starts at zero. The page draws it as inline SVG."""

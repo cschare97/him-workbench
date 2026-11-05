@@ -208,3 +208,13 @@ def test_xlsx_export_without_csvs_is_a_clear_error(tmp_path):
     from him_workbench.analytics import export_xlsx
     with pytest.raises(RuntimeError, match="no CSV"):
         export_xlsx(tmp_path)
+
+
+def test_power_query_text_promotes_headers_and_types_columns(tmp_path):
+    from him_workbench.analytics import power_query_text
+    (tmp_path / "t.csv").write_text("id,created,month,score,note\n1,2026-01-05,2026-01,2.5,a\n2,,2026-01,,\n", encoding="utf-8")
+    m = power_query_text(tmp_path, r"C:\Mac\Home\x\powerbi.xlsx")["t"]
+    assert r'File.Contents("C:\Mac\Home\x\powerbi.xlsx"), true, true' in m   # useHeaders = true
+    assert '{"id", Int64.Type}' in m and '{"created", type date}' in m
+    assert '{"month", type text}' in m and '{"score", type number}' in m and '{"note", type text}' in m
+    assert 'Item="t", Kind="Sheet"' in m
