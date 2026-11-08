@@ -212,3 +212,23 @@ def test_value_concept_tag_is_stripped_and_year_unit_spelled_out():
     vals = {r.what.display: r.value for r in c.screenings}
     assert vals["Tobacco smoking status"] == "Never smoked tobacco"
     assert vals["Income"] == "50768 per year"
+
+
+def _med(name, status, date="2024-01-01T00:00:00Z"):
+    return {"resourceType": "MedicationRequest", "status": status, "authoredOn": date,
+            "medicationCodeableConcept": {"coding": [{"code": "1", "display": name}]}}
+
+
+def test_chart_data_says_how_many_medications_are_active_and_how_to_answer_current_meds():
+    from him_workbench.chart import chart_to_dict
+    d = chart_to_dict(chart_from_resources([_med("Fluoride gel", "completed"), _med("Acetaminophen", "completed")]), "T")
+    assert "(0 with status active)" in d["summary"]
+    assert "only medications whose status is 'active'" in d["note"]
+    assert [m["status"] for m in d["medications"]] == ["completed", "completed"]
+
+
+def test_chart_data_counts_only_active_medications_as_active():
+    from him_workbench.chart import chart_to_dict
+    d = chart_to_dict(chart_from_resources([_med("Lisinopril", "active"), _med("Amoxicillin", "completed"),
+                                            _med("Warfarin", "stopped")]), "T")
+    assert "3 medications (1 with status active)" in d["summary"]

@@ -109,7 +109,7 @@ def test_code_systems_counted(doc):
 def test_chart_works_with_existing_chart_code(doc):
     from him_workbench.chart import chart_to_dict, text_chart
     d = chart_to_dict(doc.chart, "Patricia Sample")
-    assert d["summary"].startswith("2 active and 1 past problems, 2 medications, 1 allergies")
+    assert d["summary"].startswith("2 active and 1 past problems, 2 medications (") and ", 1 allergies" in d["summary"]
     assert "Hemoglobin A1c" in text_chart(doc.chart)
 
 
