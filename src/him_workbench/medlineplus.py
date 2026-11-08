@@ -18,9 +18,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Callable
+
+from defusedxml import DefusedXmlException
+from defusedxml import ElementTree as DefusedET
 
 from . import audit
 from .icd10 import format_code, looks_like_code, normalize_code
@@ -167,8 +171,8 @@ def parse_topics(xml_text: str) -> tuple[list[dict], int]:
     if "<!DOCTYPE" in xml_text or "<!ENTITY" in xml_text:
         raise MedlinePlusError("MedlinePlus returned XML this tool will not read.")
     try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError as exc:
+        root = DefusedET.fromstring(xml_text, forbid_dtd=True)
+    except (ET.ParseError, DefusedXmlException) as exc:
         raise MedlinePlusError("MedlinePlus returned a format this tool does not recognize.") from exc
     if root.tag != "nlmSearchResult":
         raise MedlinePlusError("MedlinePlus returned a format this tool does not recognize.")

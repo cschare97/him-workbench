@@ -125,16 +125,32 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         return st.bots[profile]
 
     # ---- safety: local only, JSON only ----
+    # One random token per run. Pages carry it in a <meta> tag and the page scripts send it back on every POST,
+    # so a request that did not originate from one of this app's own pages is refused even if it passes the
+    # Host, Origin and JSON checks. Browsers do not let other sites read these pages, so they cannot learn it.
+    token = secrets.token_urlsafe(32)
+    app.config["HIM_TOKEN"] = token
+
     @app.before_request
     def _guard():
         if not _host_ok(request.host):
             abort(403)
+        # Sec-Fetch-Site is set by the browser and cannot be changed by a web page. "same-site" covers another
+        # app on a different localhost port. Cross-site top-level navigation (a link, or the SMART sandbox
+        # redirecting back to /smart/callback) is still allowed for GET; anything else from outside is not.
+        site = request.headers.get("Sec-Fetch-Site")
+        if site not in (None, "same-origin", "none"):
+            if request.method != "GET" or request.headers.get("Sec-Fetch-Mode") != "navigate":
+                abort(403)
         if request.method == "POST":
             origin = request.headers.get("Origin")
             if origin and not _host_ok(urlparse(origin).netloc):
                 abort(403)
             if not request.is_json:
                 abort(415)
+            sent = request.headers.get("X-HIM-Token", "")
+            if not secrets.compare_digest(sent.encode(), token.encode()):
+                abort(403)
 
     @app.after_request
     def _headers(resp):
@@ -167,7 +183,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
             agents.append(("chart", AGENT_PROFILES["chart"]["label"]))
         return {"model": st.model, "drugs_on": drugs is not None, "attribution": ATTRIBUTION,
                 "education_on": education is not None, "edu_attribution": EDU_ATTRIBUTION, "tabs": TABS,
-                "tab_counts": counts, "local_textures": local, "agents": agents}
+                "tab_counts": counts, "local_textures": local, "agents": agents, "him_token": token}
 
     def name_of(pid: str) -> str:
         p = by_id.get(pid)

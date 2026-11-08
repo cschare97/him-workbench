@@ -7,8 +7,9 @@
       var msg = form.querySelector(".ref-msg");
       var body = {};
       new FormData(form).forEach(function (v, k) { body[k] = v; });
+      var token = (document.querySelector('meta[name="him-token"]') || {}).content || "";
       fetch(form.dataset.ref, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+        method: "POST", headers: { "Content-Type": "application/json", "X-HIM-Token": token }, body: JSON.stringify(body)
       }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
         .then(function (res) {
           if (res.ok) { window.location.reload(); }

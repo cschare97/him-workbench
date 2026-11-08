@@ -130,10 +130,11 @@ def _controls() -> list[Control]:
         C("164.308(a)(5)(ii)(A)", "Security awareness and training", "Security reminders", "A", ORG, area=A_,
           gap="Workforce training."),
         C("164.308(a)(5)(ii)(B)", "Security awareness and training", "Protection from malicious software", "A", PARTIAL, area=A_,
-          evidence="The core has no third-party dependencies (Flask and openpyxl are optional extras). A pre-commit hook scans for secret-looking strings "
-                   "and personal terms.",
-          gap="No dependency vulnerability scanning (for example pip-audit) and no malware controls.",
-          checks=[has("pyproject.toml", "dependencies = []"), has("scripts/install_hooks.sh", "secret_check.sh")]),
+          evidence="The core has one third-party dependency, defusedxml, used to parse XML safely (Flask and openpyxl are optional extras). A pre-commit hook scans for secret-looking strings "
+                   "and personal terms. CI runs pip-audit on the dependencies and Bandit on the code.",
+          gap="No malware controls. Dependency scanning runs in CI, not on the machine that runs the app.",
+          checks=[has("pyproject.toml", 'dependencies = ["defusedxml'), has("scripts/install_hooks.sh", "secret_check.sh"),
+                  has(".github/workflows/ci.yml", "pip-audit"), has(".github/workflows/ci.yml", "bandit")]),
         C("164.308(a)(5)(ii)(C)-(D)", "Security awareness and training", "Log-in monitoring (A), password management (A)", "A", NA, area=A_,
           gap="There is no log-in, which is itself the gap in the authentication rows below.",
           checks=[NO_AUTH]),
