@@ -307,9 +307,11 @@ def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -
     act = [p for p in chart.problems if p.status == "active"]
     past = [p for p in chart.problems if p.status != "active"]
     visits = chart.visits[:40]
+    meds_active = sum(1 for m in chart.medications if m.status == "active")
     out = {
         "patient": {"id": chart.patient_id, "name": name, "born": born, "sex": sex},
-        "summary": (f"{len(act)} active and {len(past)} past problems, {len(chart.medications)} medications, "
+        "summary": (f"{len(act)} active and {len(past)} past problems, {len(chart.medications)} medications "
+                    f"({meds_active} with status active), "
                     f"{len(chart.allergies)} allergies, {len(chart.vitals)} vitals and {len(chart.labs)} labs "
                     f"(most recent value of each), {len(chart.social)} social-history items, {len(chart.screenings)} "
                     f"questionnaire items, {len(chart.visits)} visits, {len(chart.immunizations)} immunizations, "
@@ -331,6 +333,9 @@ def chart_to_dict(chart: Chart, name: str = "", born: str = "", sex: str = "") -
              "newest first. Report values and dates as given. Never call a change better, worse, rising or falling.",
              "This record has no reference ranges. Never say whether a value is normal, high, low or abnormal. "
              "Questionnaire scores (PHQ, GAD-7, AUDIT-C and so on) are reported as scores only; never say what a score means.",
+             "Each medication has a status. For a question about what the patient is on or taking now, count only "
+             "medications whose status is 'active'. If none are active, say so first; then you may list the others "
+             "as past or ended courses, with their status and date, never as current.",
              "Other findings and social history can include clinical items (such as prediabetes) and social ones "
              "(such as employment); they are not on the problem list."]
     unread = {k: n for k, n in chart.skipped.items() if k.startswith("Observation")}
