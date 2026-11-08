@@ -57,6 +57,21 @@ def _host_ok(value: str | None) -> bool:
     return urlparse("//" + value).hostname in {"127.0.0.1", "localhost", "::1"}
 
 
+try:
+    from werkzeug.serving import WSGIRequestHandler as _Handler
+except ImportError:  # Flask (and so Werkzeug) is an optional extra
+    _Handler = object
+
+
+class QuietRequestHandler(_Handler):
+    """Werkzeug's development server sends 'Server: Werkzeug/x Python/y'. An OWASP ZAP scan flagged that as leaking
+    versions, and a header set in the app cannot replace it, so the name is set here. Pass as
+    request_handler= to app.run()."""
+
+    def version_string(self) -> str:
+        return "him-workbench"
+
+
 def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None,
                patients: list[Patient] | None = None,
                model: str | None = None, chat_factory=None, texture_dir: str | Path = "data/ui-textures",
@@ -158,7 +173,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["Content-Security-Policy"] = (
             "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+            "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         return resp
 
     @app.context_processor

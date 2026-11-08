@@ -826,3 +826,32 @@ def test_ccd_values_are_escaped_not_run_as_html(tmp_path):
         assert "<script>alert" not in html and "<img src=x" not in html
     # the payload did reach the page (so this test is not passing by accident), in escaped form
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in pages[1].data.decode()
+
+
+def test_csp_locks_down_base_and_form_targets(tmp_path):
+    """Found by an OWASP ZAP scan: base-uri and form-action do not fall back to default-src."""
+    r = make(tmp_path).test_client().get("/about", headers=HDR)
+    csp = r.headers["Content-Security-Policy"]
+    assert "base-uri 'none'" in csp and "form-action 'self'" in csp and "frame-ancestors 'none'" in csp
+
+
+def test_real_server_sends_one_server_header_without_versions(tmp_path):
+    """Werkzeug's dev server adds its own Server header (Werkzeug and Python versions) that the app cannot replace,
+    so this runs the real server with QuietRequestHandler and reads the raw response."""
+    import http.client
+    import threading
+    from werkzeug.serving import make_server
+    from him_workbench.webapp import QuietRequestHandler
+    srv = make_server("127.0.0.1", 0, make(tmp_path), request_handler=QuietRequestHandler)
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=5)
+        conn.request("GET", "/about")
+        resp = conn.getresponse()
+        servers = [v for k, v in resp.getheaders() if k.lower() == "server"]
+        resp.read()
+    finally:
+        srv.shutdown()
+        t.join(timeout=5)
+    assert servers == ["him-workbench"]

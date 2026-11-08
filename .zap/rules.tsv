@@ -1,0 +1,7 @@
+10036	FAIL	(Server header leaks version information)
+10038	FAIL	(CSP header not set)
+10020	FAIL	(Anti-clickjacking header missing)
+10021	FAIL	(X-Content-Type-Options header missing)
+10055	WARN	(CSP style-src unsafe-inline: accepted, the pages use inline styles)
+10027	IGNORE	(Suspicious comments: matches the word from in code comments)
+10031	IGNORE	(User controllable attribute: the pages own dropdown option values)

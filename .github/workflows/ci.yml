@@ -47,3 +47,32 @@ jobs:
       # SCA: known-vulnerable dependencies.
       - name: pip-audit (dependencies)
         run: pip-audit -r requirements.txt --require-hashes --disable-pip
+
+  # Passive web scan (OWASP ZAP baseline: spider plus passive checks, no attacks) of the running app on synthetic
+  # demo data. Rules and what is accepted: .zap/rules.tsv. Not a required check while it is new.
+  zap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install --no-deps -e .
+      - name: Start the app on demo data
+        run: |
+          python scripts/seed_demo_cli.py
+          nohup python scripts/ui_cli.py --demo-data --ccd tests/fixtures/sample_ccd.xml --port 5050 > app.log 2>&1 &
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://127.0.0.1:5050/about && exit 0; sleep 1; done
+          cat app.log; exit 1
+      - name: ZAP baseline scan
+        run: |
+          mkdir zap-out && chmod 777 zap-out && cp .zap/rules.tsv zap-out/rules.tsv
+          docker run --rm --network host -v "$PWD/zap-out:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://127.0.0.1:5050 -c rules.tsv -I -m 2 -r zap-report.html -J zap-report.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: zap-report
+          path: zap-out/

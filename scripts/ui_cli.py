@@ -36,7 +36,7 @@ from him_workbench.rxnorm import RxNormClient
 
 def main() -> None:
     try:
-        from him_workbench.webapp import create_app
+        from him_workbench.webapp import QuietRequestHandler, create_app
     except ModuleNotFoundError as exc:
         if exc.name == "flask":
             sys.exit('Flask is not installed. Run: pip install -e ".[ui]"')
@@ -85,7 +85,7 @@ def main() -> None:
     create_app(icd=icd, hcpcs=hcpcs, patients=patients, model=model, drugs=drugs, education=education, patient_source=source,
                chart_files=chart_files, ccd_files=ccd_files, roi_store=RoiStore(f"{base}/roi.db"),
                referral_store=ReferralStore(f"{base}/referrals.db"), quality_history=QualityHistory(f"{base}/quality.db"),
-               demo_data=demo, sync_data=sync_data).run(host="127.0.0.1", port=port)
+               demo_data=demo, sync_data=sync_data).run(host="127.0.0.1", port=port, request_handler=QuietRequestHandler)
 
 
 if __name__ == "__main__":
