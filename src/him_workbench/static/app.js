@@ -43,9 +43,10 @@
   }
   function open() { panel.hidden = false; }
   function close() { panel.hidden = true; }
+  var token = (document.querySelector('meta[name="him-token"]') || {}).content || "";
   function post(url, body) {
     return fetch(url, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {})
+      method: "POST", headers: { "Content-Type": "application/json", "X-HIM-Token": token }, body: JSON.stringify(body || {})
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); });
   }
 

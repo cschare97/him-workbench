@@ -5,6 +5,8 @@ import pytest
 
 pytest.importorskip("flask")
 
+from flask.testing import FlaskClient
+
 from him_workbench import audit
 from him_workbench.icd10 import ICD10Index
 from him_workbench.hcpcs import HCPCSIndex
@@ -15,6 +17,19 @@ PTS = [Patient("1", "Robert", "Alvarado", "1980-03-14", "M", "90210"),
        Patient("2", "Bob", "Alvarado", "1980-03-14", "M", "90210"),
        Patient("3", "Maria", "Okafor", "1991-11-02", "F", "60614")]
 HDR = {"Host": "127.0.0.1:5050"}
+
+
+class TokenClient(FlaskClient):
+    """Test client that behaves like the app's own pages: it sends the per-run token on POSTs.
+    Set `send_token = False` on an instance to act like some other site or program."""
+    send_token = True
+
+    def open(self, *args, **kwargs):
+        if self.send_token and str(kwargs.get("method", "GET")).upper() == "POST":
+            headers = dict(kwargs.get("headers") or {})
+            headers.setdefault("X-HIM-Token", self.application.config["HIM_TOKEN"])
+            kwargs["headers"] = headers
+        return super().open(*args, **kwargs)
 
 
 def scripted(*replies):
@@ -29,9 +44,11 @@ def make(tmp_path, replies=(), **kw):
     h = tmp_path / "hcpc2099_anweb.txt"
     h.write_text("E0100   Test cane, with tip\nK0001   Test wheelchair, standard\n")
     hcpcs = HCPCSIndex.from_file(h)
-    return create_app(icd=icd, hcpcs=hcpcs, patients=PTS, model="fake",
-                      chat_factory=lambda m: scripted(*replies),
-                      texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"], **kw)
+    app = create_app(icd=icd, hcpcs=hcpcs, patients=PTS, model="fake",
+                     chat_factory=lambda m: scripted(*replies),
+                     texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"], **kw)
+    app.test_client_class = TokenClient
+    return app
 
 
 @pytest.fixture(autouse=True)
@@ -236,6 +253,7 @@ def test_ask_with_a_patient_passes_context_and_unknown_patient_is_refused(tmp_pa
         return {"role": "assistant", "content": "ok"}
     app = create_app(patients=PTS, model="fake", chat_factory=lambda m: chat, texture_dir=tmp_path / "tex",
                      models_lister=lambda: ["fake"], chart_files={"3": f})
+    app.test_client_class = TokenClient
     c = app.test_client()
     ok = c.post("/api/ask", json={"question": "what problems?", "patient_id": "3"}, headers=HDR)
     assert ok.status_code == 200 and "Maria Okafor" in seen[0][0][0] and "patient_chart" in seen[0][1]
@@ -261,6 +279,7 @@ def test_ask_about_a_patient_shows_the_raw_chart_next_to_the_answer(tmp_path):
                     {"role": "assistant", "content": "One active problem: asthma."}])
     app = create_app(patients=PTS, model="fake", chat_factory=lambda m: (lambda messages, tools: next(replies)),
                      texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"], chart_files={"3": f})
+    app.test_client_class = TokenClient
     r = app.test_client().post("/api/ask", json={"question": "problems?", "patient_id": "3"}, headers=HDR).get_json()
     call = r["calls"][0]
     assert call["tool"] == "patient_chart" and "Chart for Maria Okafor" in call["headline"]
@@ -532,6 +551,7 @@ def test_duplicates_agent_cannot_search_codes_so_the_model_never_sees_that_tool(
     icd = ICD10Index.from_file(p)
     app = create_app(icd=icd, patients=PTS, model="fake", chat_factory=chat_factory,
                      texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"])
+    app.test_client_class = TokenClient
     r = app.test_client().post("/api/ask", json={"question": "any dupes?", "agent": "duplicates"}, headers=HDR)
     assert r.status_code == 200
     assert "search_icd10" not in seen[0] and "scan_duplicates" in seen[0]
@@ -554,6 +574,7 @@ def test_each_agent_keeps_its_own_conversation(tmp_path):
     icd = ICD10Index.from_file(p)
     app = create_app(icd=icd, patients=PTS, model="fake", chat_factory=chat_factory,
                      texture_dir=tmp_path / "tex", models_lister=lambda: ["fake"])
+    app.test_client_class = TokenClient
     c = app.test_client()
     c.post("/api/ask", json={"question": "q1", "agent": "codes"}, headers=HDR)       # system + user = 2
     c.post("/api/ask", json={"question": "q2", "agent": "codes"}, headers=HDR)       # + assistant + user = 4
@@ -731,3 +752,77 @@ def test_sync_page_empty_demo_and_bad_data(tmp_path):
     assert b"Showing the first" not in page.data  # 38 findings is under the 40-row cap
     bad = make(tmp_path, sync_data={"appointments": []}).test_client().get("/sync", headers=HDR)
     assert b"could not be checked" in bad.data and b"missing" in bad.data
+
+
+# ---- request guard: token and Sec-Fetch-Site ----
+
+JSON_POST = {"json": {"question": "hi"}}
+
+
+def test_post_without_the_token_is_refused(tmp_path):
+    c = make(tmp_path).test_client()
+    c.send_token = False
+    assert c.post("/api/reset", json={}, headers=HDR).status_code == 403
+
+
+def test_post_with_a_wrong_token_is_refused(tmp_path):
+    c = make(tmp_path).test_client()
+    assert c.post("/api/reset", json={}, headers={**HDR, "X-HIM-Token": "guess"}).status_code == 403
+
+
+def test_post_with_the_right_token_works(tmp_path):
+    c = make(tmp_path).test_client()
+    assert c.post("/api/reset", json={}, headers=HDR).status_code == 200
+
+
+def test_each_run_has_its_own_token(tmp_path):
+    assert make(tmp_path).config["HIM_TOKEN"] != make(tmp_path).config["HIM_TOKEN"]
+
+
+def test_pages_carry_the_token_for_their_own_scripts(tmp_path):
+    app = make(tmp_path)
+    html = app.test_client().get("/patients", headers=HDR).data.decode()
+    assert f'<meta name="him-token" content="{app.config["HIM_TOKEN"]}">' in html
+
+
+@pytest.mark.parametrize("site", ["cross-site", "same-site"])
+def test_post_from_another_site_or_another_localhost_port_is_refused(tmp_path, site):
+    c = make(tmp_path).test_client()
+    assert c.post("/api/reset", json={}, headers={**HDR, "Sec-Fetch-Site": site}).status_code == 403
+
+
+def test_post_from_the_apps_own_page_is_allowed(tmp_path):
+    c = make(tmp_path).test_client()
+    assert c.post("/api/reset", json={}, headers={**HDR, "Sec-Fetch-Site": "same-origin"}).status_code == 200
+
+
+def test_cross_site_navigation_is_allowed_but_cross_site_subresource_loads_are_not(tmp_path):
+    c = make(tmp_path).test_client()
+    assert c.get("/patients", headers={**HDR, "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "navigate"}).status_code == 200
+    assert c.get("/patients", headers={**HDR, "Sec-Fetch-Site": "cross-site", "Sec-Fetch-Mode": "no-cors"}).status_code == 403
+    assert c.get("/patients", headers={**HDR, "Sec-Fetch-Site": "same-site", "Sec-Fetch-Mode": "cors"}).status_code == 403
+
+
+def test_page_scripts_send_the_token():
+    root = Path(__file__).resolve().parents[1] / "src" / "him_workbench" / "static"
+    for name in ("app.js", "referrals.js", "roi.js"):
+        assert "X-HIM-Token" in (root / name).read_text(encoding="utf-8"), name
+
+
+def test_ccd_values_are_escaped_not_run_as_html(tmp_path):
+    """A booby-trapped CCD must not get its text onto a page as live HTML. Every text value and displayName in
+    the sample is replaced with markup, then the pages are rendered and the markup must come out escaped."""
+    xss = "&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(2)&gt;"
+    src = CCD.read_text(encoding="utf-8")
+    src = re.sub(r'displayName="[^"]*"', f'displayName="{xss}"', src)
+    src = re.sub(r'(?<=>)([^<>\s][^<>]*)(?=</)', xss, src)
+    evil = tmp_path / "evil.xml"
+    evil.write_text(src, encoding="utf-8")
+    c = make(tmp_path, ccd_files=[evil]).test_client()
+    pages = [c.get("/ccd", headers=HDR), c.get("/ccd/0", headers=HDR)]
+    for r in pages:
+        assert r.status_code == 200
+        html = r.data.decode()
+        assert "<script>alert" not in html and "<img src=x" not in html
+    # the payload did reach the page (so this test is not passing by accident), in escaped form
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in pages[1].data.decode()

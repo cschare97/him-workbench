@@ -9,12 +9,12 @@ description = "Local-first Health Information Management tools built on public s
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["defusedxml>=0.7"]
 
 [project.optional-dependencies]
 ui = ["flask>=3"]
 powerbi = ["openpyxl>=3.1"]
-dev = ["pytest"]
+dev = ["pytest", "bandit", "pip-audit"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

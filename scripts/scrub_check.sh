@@ -14,7 +14,8 @@ if [ ! -s "$terms" ]; then
   exit 2
 fi
 awk 'length($0) < 4 { print "Warning: very short term may cause false hits: " $0 }' "$terms" >&2
-if git ls-files -z --cached --others --exclude-standard | xargs -0 grep -nIiF -f "$terms" --; then
+# requirements.txt is machine-generated (package names and hashes). Short terms match inside the hex hashes by chance.
+if git ls-files -z --cached --others --exclude-standard | grep -zv '^requirements\.txt$' | xargs -0 grep -nIiF -f "$terms" --; then
   echo "SCRUB CHECK FAILED: terms found above." >&2
   exit 1
 fi

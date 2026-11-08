@@ -34,9 +34,13 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from defusedxml import DefusedXmlException
+from defusedxml import ElementTree as DefusedET
 
 from . import audit
 from .chart import (EARLIER_KEPT, SCREEN_EARLIER_KEPT, Allergy, Chart, Coded, Immunization, Medication,
@@ -496,7 +500,9 @@ def parse_ccd(data: bytes | str) -> CdaDocument:
         raise CdaError("The document has a DOCTYPE or ENTITY declaration. C-CDA does not use them, and they can be used "
                        "to attack XML readers, so the file was refused.")
     try:
-        root = ET.fromstring(data)
+        root = DefusedET.fromstring(data, forbid_dtd=True)
+    except DefusedXmlException as exc:
+        raise CdaError("The document uses XML features that can be used to attack XML readers, so the file was refused.") from exc
     except ET.ParseError as exc:
         raise CdaError(f"Not well-formed XML: {exc}") from exc
     if root.tag != f"{{{NS}}}ClinicalDocument":

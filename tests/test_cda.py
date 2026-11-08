@@ -258,3 +258,16 @@ def test_patient_id_prefers_the_id_with_an_extension(xml):
 def test_legal_name_preferred_over_first_listed(xml):
     x = xml.replace('<name use="L">', '<name use="A"><given>Alias</given><family>Other</family></name><name use="L">')
     assert parse_ccd(x).patient.last == "Sample"
+
+
+def test_parser_itself_refuses_a_dtd_if_the_precheck_is_bypassed(monkeypatch):
+    """Second layer: even if the DOCTYPE pre-check missed something, defusedxml refuses the DTD."""
+    import types
+    from him_workbench import cda
+    # Replace only cda's own reference to `re` (patching re.search itself would also break pytest's matching).
+    monkeypatch.setattr(cda, "re", types.SimpleNamespace(search=lambda *a, **k: None, compile=cda.re.compile,
+                                                         IGNORECASE=cda.re.IGNORECASE))
+    xxe = ('<?xml version="1.0"?><!DOCTYPE d [<!ENTITY x SYSTEM "file:///etc/passwd">]>'
+           '<ClinicalDocument xmlns="urn:hl7-org:v3">&x;</ClinicalDocument>')
+    with pytest.raises(CdaError, match="attack XML readers"):
+        parse_ccd(xxe)

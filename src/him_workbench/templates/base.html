@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ page_title }} · HIM Workbench</title>
+  <meta name="him-token" content="{{ him_token }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% if local_textures %}<style>:root { {% for n, u in local_textures.items() %}--tex-{{ n }}: url("{{ u }}"); {% endfor %} }</style>{% endif %}
 </head>

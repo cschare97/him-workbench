@@ -14,6 +14,7 @@ import json
 import os
 import difflib
 import re
+import urllib.parse
 import urllib.request
 from typing import Callable
 
@@ -460,7 +461,11 @@ class Assistant:
 # ---- Ollama transport (stdlib only) ----
 def _host(host: str | None) -> str:
     host = host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-    return (host if host.startswith("http") else "http://" + host).rstrip("/")
+    if "://" not in host:
+        host = "http://" + host
+    if urllib.parse.urlsplit(host).scheme not in ("http", "https"):
+        raise ValueError(f"Ollama host must use http:// or https://, got {host!r}")
+    return host.rstrip("/")
 
 
 def list_models(host: str | None = None, timeout: int = 10) -> list[str]:

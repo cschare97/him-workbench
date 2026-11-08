@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      # Exact versions with hashes (requirements.txt). Regenerate with the command in that file's header.
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install --no-deps -e .
+      - run: python -m pytest -q
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Exact versions with hashes (requirements.txt). Regenerate with the command in that file's header.
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install --no-deps -e .
+      # Key/token patterns. scrub_check.sh is not run here: it needs the local-only .scrub-terms file.
+      - name: Secret check
+        run: ./scripts/secret_check.sh
+      # SAST. Medium+ findings that existed when CI was added are recorded in .bandit-baseline.json
+      # (reviewed: parameterized SQL, DOCTYPE/ENTITY refused before XML parse, https-only FHIR URLs).
+      # Any NEW medium+ finding fails the build.
+      - name: Bandit (SAST)
+        run: bandit -r src -ll -b .bandit-baseline.json
+      # SCA: known-vulnerable dependencies.
+      - name: pip-audit (dependencies)
+        run: pip-audit -r requirements.txt --require-hashes --disable-pip
