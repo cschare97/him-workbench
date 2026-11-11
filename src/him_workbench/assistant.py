@@ -217,6 +217,27 @@ AGENT_PROFILES: dict[str, dict] = {
 }
 
 
+# ---- reference-range check for chart answers ----
+# The chart carries no reference ranges, so any "normal / high / low" verdict in an answer about it came from the
+# model's own memory. The prompt already forbids that, but a small model can still do it, so the answer is checked
+# in code. A sentence that says the chart has no ranges, or that the model will not interpret, is not a verdict.
+_VERDICT = re.compile(
+    r"\b(?:(?:is|was|are|were|be|looks?|appears?|seems?|considered)\s+(?:\w+\s+){0,2}?"
+    r"(?:normal|abnormal|elevated|high|low|healthy|concerning)\b"
+    r"|(?:in|within|outside|above|below|under|over|inside)\s+(?:the\s+)?(?:normal|expected|typical|healthy|reference|"
+    r"target)\s+(?:range|limits?)\b"
+    r"|(?:normal|typical|expected)\s+(?:range|levels?|values?)\b[^.]{0,60}\b(?:is|are|between|from|of)\b[^.]{0,40}\d"
+    r"|\btypically\s+(?:between|ranges?|from)\b[^.]{0,30}\d)", re.I)
+_NOT_A_VERDICT = re.compile(
+    r"\b(?:cannot|can't|can not|unable|won't|will not|no reference|not provided|not given|not include[d]?|"
+    r"(?:does not|doesn't) (?:say|give|have|include|provide)|not to (?:interpret|say|state))\b", re.I)
+_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def judges_against_a_range(text: str) -> bool:
+    return any(_VERDICT.search(s) and not _NOT_A_VERDICT.search(s) for s in _SENTENCES.split(text))
+
+
 class Assistant:
     def __init__(self, chat_fn: ChatFn, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None,
                  patients: list[Patient] | None = None, max_steps: int = 5,
@@ -230,6 +251,7 @@ class Assistant:
         self.charts = charts or {}
         self.current_patient_id: str | None = None
         self.question = ""
+        self._chart_used = False
         self.drugs = drugs
         self.education = education
         all_tools = (TOOLS + ([DRUG_TOOL] if drugs else []) + ([EDU_TOOL] if education else [])
@@ -421,6 +443,7 @@ class Assistant:
         to the question so the model knows who 'this patient' is."""
         self.current_patient_id = None
         self.question = question
+        self._chart_used = False
         if patient_id and patient_id in self._by_id:
             p = self._by_id[patient_id]
             self.current_patient_id = patient_id
@@ -444,6 +467,7 @@ class Assistant:
                         args = {}
                 result = self.run_tool(fn.get("name", ""), args)
                 self._note_codes(result, any_case=fn.get("name") == "patient_chart")
+                self._chart_used = self._chart_used or fn.get("name") == "patient_chart"
                 if self.on_result:
                     self.on_result(fn.get("name", ""), result)
                 self.messages.append({"role": "tool", "tool_name": fn.get("name", ""),
@@ -458,6 +482,9 @@ class Assistant:
         if unseen:
             text += ("\n\n[!] Not returned by a lookup in this conversation, verify before use: "
                      + ", ".join(unseen))
+        if self._chart_used and judges_against_a_range(text):
+            text += ("\n\n[!] This answer judges a value against a normal range. The chart has no reference ranges, "
+                     "so that judgement is not from the chart. Ignore it and read the values and dates as given.")
         return text
 
 

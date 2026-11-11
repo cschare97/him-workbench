@@ -3,7 +3,7 @@ import json
 import pytest
 
 from him_workbench import audit
-from him_workbench.assistant import Assistant
+from him_workbench.assistant import Assistant, judges_against_a_range
 from him_workbench.icd10 import ICD10Index
 from him_workbench.hcpcs import HCPCSIndex
 from him_workbench.matching import Patient
@@ -348,3 +348,54 @@ def test_general_profile_is_unchanged_default(icd, hcpcs):
     names = {t["function"]["name"] for t in bot.tools}
     assert {"search_icd10", "search_hcpcs", "scan_duplicates", "data_quality_report",
             "compare_patients"} <= names
+
+
+# ---- reference-range check on chart answers ----
+RANGE_FLAG = "judges a value against a normal range"
+
+
+def _chart_answer(tmp_path, reply):
+    bot = _chart_bot(tmp_path, call("patient_chart"), say(reply))
+    return bot.ask("is the last a1c normal?", patient_id="p1")
+
+
+def test_a_verdict_from_the_models_own_memory_is_flagged(tmp_path):
+    assert RANGE_FLAG in _chart_answer(tmp_path, "The A1c is 5.89 %. This is within the normal range.")
+    assert RANGE_FLAG in _chart_answer(tmp_path, "The A1c is 5.89 %, which is not in the normal range.")
+
+
+def test_a_range_quoted_from_memory_is_flagged(tmp_path):
+    out = _chart_answer(tmp_path, "Hemoglobin is 15.1 g/dL. The normal range for adults is typically between 12.0 and 17.5.")
+    assert RANGE_FLAG in out
+
+
+def test_a_verdict_followed_by_a_disclaimer_is_still_flagged(tmp_path):
+    out = _chart_answer(tmp_path, "The value is below the normal range of 13.8 to 17.2. However, as instructed, I am not to interpret it.")
+    assert RANGE_FLAG in out
+
+
+def test_saying_the_chart_has_no_ranges_is_not_flagged(tmp_path):
+    out = _chart_answer(tmp_path, "The A1c is 5.89 %. The chart has no reference range, so I cannot say if it is in the normal range.")
+    assert "[!]" not in out
+
+
+def test_plain_values_and_dates_are_not_flagged(tmp_path):
+    assert "[!]" not in _chart_answer(tmp_path, "The most recent A1c was 5.89 % on 2026-02-03.")
+
+
+def test_the_check_only_applies_after_a_chart_lookup(tmp_path):
+    bot = _chart_bot(tmp_path, say("That is within the normal range."))
+    assert "[!]" not in bot.ask("hello")
+
+
+def test_the_flag_does_not_carry_over_to_the_next_question(tmp_path):
+    bot = _chart_bot(tmp_path, call("patient_chart"), say("A1c 5.89 %, within the normal range."), say("Hello."))
+    assert RANGE_FLAG in bot.ask("a1c?", patient_id="p1")
+    assert "[!]" not in bot.ask("hi")
+
+
+def test_judges_against_a_range_examples_from_a_real_run():
+    # answers a 7B model gave in the accuracy test (no ranges in the record)
+    assert judges_against_a_range("This value is not in the normal range for hemoglobin, which is typically between 13.8 and 17.2 g/dL for adult males.")
+    assert judges_against_a_range("This value is within the normal range for hemoglobin, which is typically between 12.0 and 16.0 g/dL for females.")
+    assert not judges_against_a_range("This value is not provided with a reference range, so it cannot be determined if it is in the normal range based on the information given.")
