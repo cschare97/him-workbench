@@ -8,6 +8,7 @@ Sources (ecqi.healthit.gov):
 These are teaching versions, not certified measure logic. Simplifications
 are listed in SIMPLIFICATIONS so nobody mistakes this for the official spec.
 """
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -28,7 +29,18 @@ SIMPLIFICATIONS = [
     "Patients who died before the end of the period are left out.",
     "Codes are matched on a few common Synthea codes, not full VSAC value sets.",
     "Glucose management indicator (GMI) is not used for CMS122, only HbA1c.",
+    "Gap types (care, documentation, open order) are this project's own triage labels, "
+    "not part of any eCQM. A documentation gap comes from a keyword match in a note, "
+    "so it means 'worth a chart review', not proof the care happened.",
 ]
+
+# Gap types. Only set when the result is a care gap.
+CARE = "care"                    # the care didn't happen, or the result is out of range
+DOCUMENTATION = "documentation"  # a note suggests it happened, but nothing structured is on file
+OPEN_ORDER = "open order"        # it was ordered in the period but no result came back
+
+A1C_NOTE = re.compile(r"\b(hb)?a1c\b|hemoglobin a1c", re.IGNORECASE)
+EYE_NOTE = re.compile(r"retinal (eye )?exam|dilated eye exam|eye exam", re.IGNORECASE)
 
 
 @dataclass
@@ -36,6 +48,19 @@ class MeasureResult:
     measure: str
     status: str   # "met", "not met", "excluded" or "not in denominator"
     reason: str
+    kind: str = ""  # gap type when this result is a care gap, else ""
+
+
+def _note_mention(facts, pattern):
+    """Most recent date in the period on which a note matches the pattern, or None."""
+    days = [day for day, text in facts.notes if _in_period(day) and pattern.search(text)]
+    return max(days) if days else None
+
+
+def _open_order(facts, code):
+    """Most recent date in the period on which this code was ordered, or None."""
+    days = [day for c, day, _status in facts.orders if c == code and _in_period(day)]
+    return max(days) if days else None
 
 
 def _in_period(day):
@@ -92,13 +117,21 @@ def cms122(facts):
         return MeasureResult(name, "excluded", "hospice or palliative care in the period")
     a1cs = [o for o in _results_in_period(facts, A1C_LOINC) if o.value is not None]
     if not a1cs:
-        return MeasureResult(name, "met",
-                             "no structured A1c result in the period (a missing result counts as >9%)")
+        missing = "no structured A1c result in the period (a missing result counts as >9%)"
+        noted = _note_mention(facts, A1C_NOTE)
+        if noted:
+            return MeasureResult(name, "met", f"{missing}, but a note on {noted} mentions an A1c; "
+                                 "review the chart and enter it as a structured result", DOCUMENTATION)
+        ordered = _open_order(facts, A1C_LOINC)
+        if ordered:
+            return MeasureResult(name, "met", f"{missing}; an A1c was ordered on {ordered} "
+                                 "but no result came back", OPEN_ORDER)
+        return MeasureResult(name, "met", missing, CARE)
     latest_day = max(o.day for o in a1cs)
     # Spec: if several results share the latest date, use the lowest.
     latest = min(o.value for o in a1cs if o.day == latest_day)
     if latest > 9.0:
-        return MeasureResult(name, "met", f"most recent A1c {latest}% on {latest_day} is above 9%")
+        return MeasureResult(name, "met", f"most recent A1c {latest}% on {latest_day} is above 9%", CARE)
     return MeasureResult(name, "not met", f"most recent A1c {latest}% on {latest_day}")
 
 
@@ -124,7 +157,12 @@ def cms131(facts):
     if prior_year and not _has_retinopathy(facts):
         return MeasureResult(name, "met",
                              f"no retinopathy and a retinal exam last year on {prior_year[-1]}")
-    return MeasureResult(name, "not met", "no structured retinal exam on file for the period")
+    missing = "no structured retinal exam on file for the period"
+    noted = _note_mention(facts, EYE_NOTE)
+    if noted:
+        return MeasureResult(name, "not met", f"{missing}, but a note on {noted} mentions an eye exam; "
+                             "request the outside report and enter it", DOCUMENTATION)
+    return MeasureResult(name, "not met", missing, CARE)
 
 
 def cms951(facts):
@@ -139,7 +177,7 @@ def cms951(facts):
     if has_egfr and has_uacr:
         return MeasureResult(name, "met", "eGFR and urine albumin/creatinine ratio both in the period")
     missing = [label for label, present in (("eGFR", has_egfr), ("uACR", has_uacr)) if not present]
-    return MeasureResult(name, "not met", "missing in the period: " + ", ".join(missing))
+    return MeasureResult(name, "not met", "missing in the period: " + ", ".join(missing), CARE)
 
 
 MEASURES = (cms122, cms131, cms951)

@@ -163,3 +163,55 @@ def test_clean_name_drops_synthea_numbers():
     assert clean_name("Annamae625 Luciana251 Beatty507") == "Annamae Luciana Beatty"
     assert clean_name("Julianne852 O'Reilly797") == "Julianne O'Reilly"
     assert clean_name("Pedro316 Martín25 Farías160") == "Pedro Martín Farías"
+
+
+# --- gap types ---
+
+def test_missing_a1c_with_no_note_is_care_gap():
+    assert cms122(make_patient()).kind == "care"
+
+
+def test_missing_a1c_mentioned_in_note_is_documentation_gap():
+    p = make_patient()
+    p.notes.append((date(2026, 5, 1), "Outside lab: Hemoglobin A1c 7.4%"))
+    result = cms122(p)
+    assert result.status == "met" and result.kind == "documentation"
+    assert "2026-05-01" in result.reason
+
+
+def test_note_from_last_year_does_not_count():
+    p = make_patient()
+    p.notes.append((date(2025, 5, 1), "A1c 7.4%"))
+    assert cms122(p).kind == "care"
+
+
+def test_a1c_ordered_without_result_is_open_order():
+    from fhir_load import A1C_LOINC as code
+    p = make_patient()
+    p.orders.append((code, date(2026, 4, 2), "active"))
+    result = cms122(p)
+    assert result.kind == "open order" and "2026-04-02" in result.reason
+
+
+def test_high_a1c_is_care_gap():
+    p = make_patient()
+    a1c(p, date(2026, 9, 1), 10.1)
+    assert cms122(p).kind == "care"
+
+
+def test_passing_result_has_no_kind():
+    p = make_patient()
+    a1c(p, date(2026, 9, 1), 7.0)
+    assert cms122(p).kind == ""
+
+
+def test_outside_eye_exam_note_is_documentation_gap():
+    p = make_patient()
+    p.notes.append((date(2026, 3, 9), "Patient reports a dilated eye exam at an outside office."))
+    assert cms131(p).kind == "documentation"
+
+
+def test_word_a1c_inside_other_word_does_not_match():
+    p = make_patient()
+    p.notes.append((date(2026, 3, 9), "code XA1C99 in the billing note"))
+    assert cms122(p).kind == "care"

@@ -8,21 +8,31 @@
   {
    "measure": "CMS122 A1c >9%",
    "denominator": 99,
-   "met": 5,
-   "gaps": 5,
+   "met": 17,
+   "gaps": 17,
+   "by_kind": {
+    "care": 10,
+    "documentation": 4,
+    "open order": 3
+   },
    "excluded": 1,
    "not_in_denominator": 23,
-   "rate": 5.1,
+   "rate": 17.2,
    "inverse": true
   },
   {
    "measure": "CMS131 Eye exam",
    "denominator": 99,
-   "met": 67,
-   "gaps": 32,
+   "met": 63,
+   "gaps": 36,
+   "by_kind": {
+    "care": 32,
+    "documentation": 4,
+    "open order": 0
+   },
    "excluded": 1,
    "not_in_denominator": 23,
-   "rate": 67.7,
+   "rate": 63.6,
    "inverse": false
   },
   {
@@ -30,6 +40,11 @@
    "denominator": 99,
    "met": 93,
    "gaps": 6,
+   "by_kind": {
+    "care": 6,
+    "documentation": 0,
+    "open order": 0
+   },
    "excluded": 1,
    "not_in_denominator": 23,
    "rate": 93.9,
@@ -41,30 +56,70 @@
   "Exclusions cover hospice and palliative care only. The frailty and advanced-illness exclusion for ages 66+ is not implemented.",
   "Patients who died before the end of the period are left out.",
   "Codes are matched on a few common Synthea codes, not full VSAC value sets.",
-  "Glucose management indicator (GMI) is not used for CMS122, only HbA1c."
+  "Glucose management indicator (GMI) is not used for CMS122, only HbA1c.",
+  "Gap types (care, documentation, open order) are this project's own triage labels, not part of any eCQM. A documentation gap comes from a keyword match in a note, so it means 'worth a chart review', not proof the care happened."
  ],
+ "gap_kinds": {
+  "care": 48,
+  "documentation": 8,
+  "open order": 3
+ },
+ "injected": true,
  "patients": [
   {
    "id": "14c255a9-6dab-5001-cd29-247929efa674",
    "name": "Annamae Luciana Beatty",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "met",
      "reason": "no structured A1c result in the period (a missing result counts as >9%)",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-15",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: eGFR, uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
+    }
+   ],
+   "gap_count": 2
+  },
+  {
+   "id": "21178a7c-2845-9ca2-0f9c-9dfb83a59963",
+   "name": "Carlos Wolf",
+   "scenario": "a1c_in_note",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%), but a note on 2026-10-07 mentions an A1c; review the chart and enter it as a structured result",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 2
@@ -72,24 +127,28 @@
   {
    "id": "93c3250e-01b8-06ad-202d-2bf4b24569bd",
    "name": "Carson Chester Bauch",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "met",
      "reason": "no structured A1c result in the period (a missing result counts as >9%)",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: eGFR, uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     }
    ],
    "gap_count": 2
@@ -97,24 +156,28 @@
   {
    "id": "dc7f0e52-a69d-57ec-fc83-7db2a0b90416",
    "name": "Clemente Corona",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "met",
      "reason": "no structured A1c result in the period (a missing result counts as >9%)",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-07",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: eGFR, uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     }
    ],
    "gap_count": 2
@@ -122,24 +185,86 @@
   {
    "id": "c63ee3fa-e1fc-7c93-d68a-f5e58a39918e",
    "name": "Jerry Leena Schneider",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "met",
      "reason": "no structured A1c result in the period (a missing result counts as >9%)",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: eGFR, uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
+    }
+   ],
+   "gap_count": 2
+  },
+  {
+   "id": "87eecb1b-6e00-2f98-fd12-b2dc23b590e4",
+   "name": "Manuela Marroqu\u00edn",
+   "scenario": "uncontrolled",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "most recent A1c 11.8% on 2026-07-30 is above 9%",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 2
+  },
+  {
+   "id": "bce3d8e9-ecbb-89b9-e17e-98d83fb30ddb",
+   "name": "Pedro Mart\u00edn Far\u00edas",
+   "scenario": "a1c_in_note",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%), but a note on 2026-10-19 mentions an A1c; review the chart and enter it as a structured result",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 2
@@ -147,24 +272,28 @@
   {
    "id": "c60ad3d7-e2c4-9487-29a2-957113823e2e",
    "name": "Rosie Juliann Jenkins",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "met",
      "reason": "no structured A1c result in the period (a missing result counts as >9%)",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-08-07",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: eGFR, uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     }
    ],
    "gap_count": 2
@@ -172,24 +301,28 @@
   {
    "id": "17e83865-8b10-174a-3f3b-4979cbf6cbc4",
    "name": "Alec Cesar Barton",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.08% on 2026-08-30",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -197,24 +330,57 @@
   {
    "id": "96c8ad3e-4052-3a9a-8a3a-9bbfadce5dfb",
    "name": "Artie Champlin",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.38% on 2026-10-29",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "49243349-4c0d-9996-e79c-3c34d315c5f0",
+   "name": "Athena Mara Davis",
+   "scenario": "outside_eye_exam",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "not met",
+     "reason": "most recent A1c 7.14% on 2026-08-07",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period, but a note on 2026-05-09 mentions an eye exam; request the outside report and enter it",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -222,24 +388,28 @@
   {
    "id": "c05993c6-2513-44ce-f4dd-f2c56be5b59d",
    "name": "Byron John Rice",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.91% on 2026-10-19",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -247,24 +417,28 @@
   {
    "id": "fee2d51a-3ef8-648e-ef23-c124f46c61d0",
    "name": "Caitlyn Leticia Lakin",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.54% on 2026-11-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -272,24 +446,28 @@
   {
    "id": "b23109e9-ee2f-4ac0-b855-54d039a3797b",
    "name": "Candie Lasandra Abshire",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.1% on 2026-11-06",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -297,49 +475,28 @@
   {
    "id": "f39c6115-9562-b0bb-f65c-462e20db757f",
    "name": "Caridad Berta Merino",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.98% on 2026-07-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 1
-  },
-  {
-   "id": "21178a7c-2845-9ca2-0f9c-9dfb83a59963",
-   "name": "Carlos Wolf",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 6.06% on 2026-10-07",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "not met",
-     "reason": "no structured retinal exam on file for the period",
-     "gap": true
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -347,24 +504,28 @@
   {
    "id": "109c2427-7e64-2d17-d0e0-056dd4a69c14",
    "name": "Catherin Shelia Ruecker",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.02% on 2026-01-23",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -372,24 +533,28 @@
   {
    "id": "8ca70a3a-57f1-5b01-4973-b5f2e422021b",
    "name": "Clemencia Ione Kuhlman",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.41% on 2026-11-11",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -397,24 +562,57 @@
   {
    "id": "b93b523e-3ffa-172f-e853-0598f12b79bc",
    "name": "Darwin Barney Farrell",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.9% on 2026-02-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "c3c0ebad-37e8-876d-c9ad-0e6c37a4ea89",
+   "name": "Freeman Jacinto Bailey",
+   "scenario": "uncontrolled",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "most recent A1c 11.3% on 2026-11-16 is above 9%",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-03-06",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -422,24 +620,28 @@
   {
    "id": "0d191757-61ae-4a1a-d807-fe00aae013ce",
    "name": "Jesusita Block",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.85% on 2026-01-15",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -447,24 +649,28 @@
   {
    "id": "a5d6efb0-b4ad-b4c0-41b5-e9ebeba9e168",
    "name": "Jolanda Mariella Leuschke",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.07% on 2026-09-23",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -472,24 +678,28 @@
   {
    "id": "795a536e-fd64-2c15-5ce3-fc35a48705d3",
    "name": "Josue Percy Price",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.37% on 2026-10-05",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -497,24 +707,28 @@
   {
    "id": "f32f7c6d-0014-9d6b-6afa-a2e888f854b7",
    "name": "Julianne Melita O'Reilly",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.05% on 2026-10-31",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -522,24 +736,86 @@
   {
    "id": "41858a15-2fdf-8c7d-0348-1a8c3a3a2e67",
    "name": "Kimberly Krystina Ward",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.58% on 2026-02-03",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "4b58cd0b-b5b1-f63c-db9e-06af7e16fdac",
+   "name": "Kimbra Vera Hoppe",
+   "scenario": "a1c_in_note",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%), but a note on 2026-10-22 mentions an A1c; review the chart and enter it as a structured result",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-05-15",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "e8325a68-2c62-9f39-875f-5076d5d3a41c",
+   "name": "Kristi Scott Reichel",
+   "scenario": "uncontrolled",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "most recent A1c 11.6% on 2026-01-13 is above 9%",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-07-23",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -547,24 +823,57 @@
   {
    "id": "09c3f8cf-6d85-bab8-dfad-90d1cf886312",
    "name": "Kurtis Darius Wuckert",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.15% on 2026-07-29",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "5a7aa494-a75e-27bb-e4aa-ab0845724967",
+   "name": "Leanne Tera Schiller",
+   "scenario": "outside_eye_exam",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "not met",
+     "reason": "most recent A1c 5.32% on 2026-05-15",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period, but a note on 2026-06-12 mentions an eye exam; request the outside report and enter it",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -572,49 +881,28 @@
   {
    "id": "ad72e843-12c2-2bdb-2e0a-a866d86775cc",
    "name": "Lindsay Dicki",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.09% on 2026-02-22",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 1
-  },
-  {
-   "id": "87eecb1b-6e00-2f98-fd12-b2dc23b590e4",
-   "name": "Manuela Marroqu\u00edn",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 6.6% on 2026-07-30",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "not met",
-     "reason": "no structured retinal exam on file for the period",
-     "gap": true
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -622,24 +910,28 @@
   {
    "id": "d7311c17-1cc1-3a35-5b85-4dd7d2076af1",
    "name": "Marti Charlette Breitenberg",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.59% on 2026-10-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -647,24 +939,28 @@
   {
    "id": "f6c9e22b-a7c0-055c-9b19-0ac970899eca",
    "name": "Maurita Kaylee Hyatt",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 2.71% on 2026-11-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -672,49 +968,144 @@
   {
    "id": "a1282f49-4c74-4428-cb4d-33b92d823409",
    "name": "Meda Charisse Doyle",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.83% on 2026-08-30",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
   },
   {
-   "id": "bce3d8e9-ecbb-89b9-e17e-98d83fb30ddb",
-   "name": "Pedro Mart\u00edn Far\u00edas",
+   "id": "8f179be4-504d-e5cc-1d23-5bef49feacdf",
+   "name": "Micaela Graciela Rodr\u00edguez",
+   "scenario": "open_order",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 6.03% on 2026-10-19",
-     "gap": false
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%); an A1c was ordered on 2026-07-30 but no result came back",
+     "gap": true,
+     "kind": "open order"
     },
     {
      "measure": "CMS131 Eye exam",
-     "status": "not met",
-     "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "status": "met",
+     "reason": "retinal exam on 2026-10-26",
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "4684a689-fddf-8aa6-55a8-6a11a3fc4387",
+   "name": "Norris Gus Powlowski",
+   "scenario": "outside_eye_exam",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "not met",
+     "reason": "most recent A1c 5.55% on 2026-04-30",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period, but a note on 2026-05-05 mentions an eye exam; request the outside report and enter it",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "508fe33c-7cc2-2808-6052-1db5808cdaa2",
+   "name": "Raleigh Ira Graham",
+   "scenario": "a1c_in_note",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%), but a note on 2026-10-05 mentions an A1c; review the chart and enter it as a structured result",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-05-05",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "61496866-5739-539f-ddd9-c79017df4c8f",
+   "name": "Reed Ambrose Langworth",
+   "scenario": "open_order",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%); an A1c was ordered on 2026-09-03 but no result came back",
+     "gap": true,
+     "kind": "open order"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-06-03",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -722,24 +1113,57 @@
   {
    "id": "25c76173-0fb2-d6f2-396a-5e1a95cb8f33",
    "name": "Rene Antone Koch",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.9% on 2026-07-27",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "e8cf4730-d160-ab25-c9c9-c60cca122a48",
+   "name": "Rene Colin Powlowski",
+   "scenario": "uncontrolled",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "most recent A1c 9.9% on 2026-01-20 is above 9%",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-10-15",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -747,24 +1171,28 @@
   {
    "id": "801d4cef-97bd-aac2-1655-d5078d6caf08",
    "name": "Reuben Saul Okuneva",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.6% on 2026-05-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -772,24 +1200,57 @@
   {
    "id": "ea502fe3-2fb5-cf70-4685-6530d34783b3",
    "name": "Sally Pei Jacobson",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.32% on 2026-09-27",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "72a14f4f-04c9-a3a0-9a96-fda740b9b093",
+   "name": "Santiago Jes\u00fas Quiroz",
+   "scenario": "outside_eye_exam",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "not met",
+     "reason": "most recent A1c 3.05% on 2026-11-05",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "not met",
+     "reason": "no structured retinal exam on file for the period, but a note on 2026-03-28 mentions an eye exam; request the outside report and enter it",
+     "gap": true,
+     "kind": "documentation"
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -797,24 +1258,28 @@
   {
    "id": "696ad2d0-078f-4e8d-7459-58a6139d102c",
    "name": "Shanel Lydia Barrows",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.55% on 2026-08-24",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -822,24 +1287,28 @@
   {
    "id": "c06f42ea-0d48-95eb-bddc-fe3641933f89",
    "name": "Shawanna Monnie Bashirian",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.9% on 2026-08-12",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-19",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "not met",
      "reason": "missing in the period: uACR",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     }
    ],
    "gap_count": 1
@@ -847,24 +1316,28 @@
   {
    "id": "ff4cc8e7-c569-aa99-7f7d-4d18e521524c",
    "name": "Sherill Johnie Sporer",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.47% on 2026-06-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -872,24 +1345,57 @@
   {
    "id": "1e0e4821-3804-523c-5afc-ece3d431f8a7",
    "name": "Simon Wilson Muller",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.84% on 2026-08-03",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "cfce2d8c-a97a-1435-56a0-a0bfb0f255ee",
+   "name": "Soledad Luisa Ram\u00f3n",
+   "scenario": "open_order",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "no structured A1c result in the period (a missing result counts as >9%); an A1c was ordered on 2026-10-11 but no result came back",
+     "gap": true,
+     "kind": "open order"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-11-08",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -897,24 +1403,28 @@
   {
    "id": "c83c4ca6-916b-8b72-89ff-2296bc12723f",
    "name": "Teena Lecia Bradtke",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.29% on 2026-04-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -922,24 +1432,28 @@
   {
    "id": "3c853481-5721-cc79-bd66-4efc306a30b8",
    "name": "Vernon Noel Treutel",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.65% on 2026-06-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -947,24 +1461,28 @@
   {
    "id": "47740bb8-d7e1-6eb3-8bb8-bfdbb187c53e",
    "name": "Wade Spinka",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.62% on 2026-11-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -972,24 +1490,57 @@
   {
    "id": "c168f7ab-1c83-7d76-c11b-4e5f5509452d",
    "name": "Ward Seth Hahn",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.83% on 2026-09-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "not met",
      "reason": "no structured retinal exam on file for the period",
-     "gap": true
+     "gap": true,
+     "kind": "care"
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
+    }
+   ],
+   "gap_count": 1
+  },
+  {
+   "id": "332043c0-fa69-ac1c-0a5b-44fe8684d499",
+   "name": "Zulema Susann Keeling",
+   "scenario": "uncontrolled",
+   "results": [
+    {
+     "measure": "CMS122 A1c >9%",
+     "status": "met",
+     "reason": "most recent A1c 11.7% on 2026-11-08 is above 9%",
+     "gap": true,
+     "kind": "care"
+    },
+    {
+     "measure": "CMS131 Eye exam",
+     "status": "met",
+     "reason": "retinal exam on 2026-08-11",
+     "gap": false,
+     "kind": ""
+    },
+    {
+     "measure": "CMS951 Kidney health",
+     "status": "met",
+     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 1
@@ -997,24 +1548,28 @@
   {
    "id": "448c6dc3-6fbe-1b48-980e-fae218fe608b",
    "name": "Adriana Catalina Ur\u00edas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.6% on 2026-10-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-11-11",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1022,24 +1577,28 @@
   {
    "id": "5b0e05f5-2132-62d2-b598-66c7f8f0211d",
    "name": "Alec Damon Jakubowski",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.45% on 2026-10-08",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-04-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1047,49 +1606,28 @@
   {
    "id": "c07158a4-68c3-1eaf-8cb6-06b510eb3d9f",
    "name": "Armandina Conchita Pollich",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.02% on 2026-07-30",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "49243349-4c0d-9996-e79c-3c34d315c5f0",
-   "name": "Athena Mara Davis",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 7.14% on 2026-08-07",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-05-09",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1097,24 +1635,28 @@
   {
    "id": "e67ecdd3-bb86-18e4-2e82-93cd80d18824",
    "name": "Bernardo Eduardo Salas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "excluded",
      "reason": "hospice or palliative care in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "excluded",
      "reason": "hospice or palliative care in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "excluded",
      "reason": "hospice or palliative care in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1122,24 +1664,28 @@
   {
    "id": "ed968996-0a9b-b12c-cc59-cbc6608979d7",
    "name": "Berta Mariana Linares",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 2.47% on 2026-10-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1147,24 +1693,28 @@
   {
    "id": "63d00bb3-7e48-54c0-c13a-d52b66d3086d",
    "name": "Boyce Claude Schaden",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.84% on 2026-11-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-01-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1172,24 +1722,28 @@
   {
    "id": "a3867351-706a-6d6e-ed23-364a527d533d",
    "name": "Branden Devin Price",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.78% on 2026-10-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1197,24 +1751,28 @@
   {
    "id": "47822366-a397-58e6-c7bc-554fa5432fcb",
    "name": "Brandie Rhea Auer",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.83% on 2026-04-28",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-31",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1222,24 +1780,28 @@
   {
    "id": "3838f4c6-fde6-05cf-21c9-6e0ecf87535c",
    "name": "Burl Bernie Crooks",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.9% on 2026-08-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-23",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1247,24 +1809,28 @@
   {
    "id": "ddcca2e8-066f-d4bc-5fc3-0f06b46d6a01",
    "name": "Catalina Rosalia Granado",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.93% on 2026-01-12",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1272,24 +1838,28 @@
   {
    "id": "d2d9560a-f580-e1df-979f-b3b3d4c73ec0",
    "name": "Chong Weston Green",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.15% on 2026-04-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-11-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1297,24 +1867,28 @@
   {
    "id": "44090b49-4f74-1099-58b1-e71cd4ef1630",
    "name": "Clair Ming Lueilwitz",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.81% on 2026-01-14",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1322,24 +1896,28 @@
   {
    "id": "a7aafc50-1ede-3767-174f-f8af525287a4",
    "name": "Coralee Petra Funk",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.02% on 2026-10-03",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-08-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1347,24 +1925,28 @@
   {
    "id": "2c087575-2ecf-b8ff-e0e6-62c539eedd6e",
    "name": "Cristina Susana Salinas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 8.52% on 2026-01-05",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1372,24 +1954,28 @@
   {
    "id": "2206dd64-23f0-cfa7-0b49-b6cd8a9d326a",
    "name": "Daniela Leticia V\u00e1squez",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.6% on 2026-04-08",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-30",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1397,24 +1983,28 @@
   {
    "id": "213effd1-da2c-1cf1-542b-4efa445a3091",
    "name": "Dee Lance Schulist",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.94% on 2026-10-23",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-11-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1422,49 +2012,28 @@
   {
    "id": "fb75dd0e-1197-4186-fa10-dac872a2dc64",
    "name": "Francisca Pati\u00f1o",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.1% on 2026-01-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-10-31",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "c3c0ebad-37e8-876d-c9ad-0e6c37a4ea89",
-   "name": "Freeman Jacinto Bailey",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 5.93% on 2026-11-16",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-03-06",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1472,24 +2041,28 @@
   {
    "id": "d845142a-4cc6-ce73-0311-9f87eaf41b1c",
    "name": "Gale Dirk Beahan",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.01% on 2026-10-27",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-16",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1497,24 +2070,28 @@
   {
    "id": "555649c8-6044-c316-0878-dd2b7708c16d",
    "name": "Han Stracke",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.97% on 2026-11-13",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "no retinopathy and a retinal exam last year on 2025-12-05",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1522,24 +2099,28 @@
   {
    "id": "82abd4a4-b09d-e071-9f06-53520890f89b",
    "name": "Inger Hassie Little",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.6% on 2026-10-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1547,24 +2128,28 @@
   {
    "id": "a465725a-a6c5-4912-15ea-74cd0a9d943c",
    "name": "Jackson Titus Murray",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.99% on 2026-09-11",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-04-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1572,24 +2157,28 @@
   {
    "id": "582d419d-60c7-8372-4db1-f0d83b101922",
    "name": "James Gonzalo Schroeder",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.44% on 2026-09-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-09",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1597,24 +2186,28 @@
   {
    "id": "93a69581-ddb4-ec95-4a6a-73e89a945ce6",
    "name": "Josefina Graciela Franco",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.89% on 2026-01-09",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-19",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1622,49 +2215,28 @@
   {
    "id": "4b8df55c-106e-8cbf-cc94-49ce10a75593",
    "name": "Julian Hane",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.56% on 2026-11-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "4b58cd0b-b5b1-f63c-db9e-06af7e16fdac",
-   "name": "Kimbra Vera Hoppe",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 6.93% on 2026-10-22",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-05-15",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1672,49 +2244,28 @@
   {
    "id": "f0a33e4b-82ca-31cb-ff66-01f1b38238d8",
    "name": "Kittie Candice Robel",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.05% on 2026-10-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-06",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "e8325a68-2c62-9f39-875f-5076d5d3a41c",
-   "name": "Kristi Scott Reichel",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 7.41% on 2026-01-13",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-07-23",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1722,24 +2273,28 @@
   {
    "id": "df0d4269-a49d-e1fb-63a7-762776d9487f",
    "name": "Lakesha Hansen",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.13% on 2026-06-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-02-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1747,24 +2302,28 @@
   {
    "id": "3404010f-fd3b-ba75-ec4b-e5edaec0c62e",
    "name": "Lanora Vicenta Hodkiewicz",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.62% on 2026-04-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-13",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1772,49 +2331,28 @@
   {
    "id": "eebabdda-78fc-64b9-52ff-d1fd40f6bbb8",
    "name": "Lawrence Alexis Wilkinson",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.41% on 2026-11-19",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-04-30",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "5a7aa494-a75e-27bb-e4aa-ab0845724967",
-   "name": "Leanne Tera Schiller",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 5.32% on 2026-05-15",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-06-12",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1822,24 +2360,28 @@
   {
    "id": "986ecc51-99d6-fb7d-6c82-8137fba23f1f",
    "name": "Lien Quigley",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.95% on 2026-11-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-08-04",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1847,24 +2389,28 @@
   {
    "id": "b48340be-63c0-6145-4dae-120426213df9",
    "name": "Lizbeth Nickie Funk",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.53% on 2026-07-04",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-05-23",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1872,24 +2418,28 @@
   {
    "id": "e7015326-4b23-e7fc-fd0f-651ad353777f",
    "name": "Lupe Burton Dare",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.8% on 2026-05-14",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-07",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1897,24 +2447,28 @@
   {
    "id": "a69aea42-a07d-153c-ef44-76cf8ed84b3c",
    "name": "Margarita Luz Dom\u00ednguez",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 8.05% on 2026-07-22",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1922,49 +2476,28 @@
   {
    "id": "20ca84eb-a3c0-aeae-6961-a6157f980d23",
    "name": "Mckenzie Lashaunda Nicolas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.5% on 2026-04-26",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "8f179be4-504d-e5cc-1d23-5bef49feacdf",
-   "name": "Micaela Graciela Rodr\u00edguez",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 5.54% on 2026-07-30",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-10-26",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1972,24 +2505,28 @@
   {
    "id": "ef108e5e-5d5c-c0c7-6445-bc85efe88334",
    "name": "Miguel \u00c1ngel Longoria",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.94% on 2026-08-14",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-25",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -1997,49 +2534,28 @@
   {
    "id": "c7684691-b1ed-0332-36ef-7d41b0e54864",
    "name": "Norma Urrutia",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.11% on 2026-11-22",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-01-15",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "4684a689-fddf-8aa6-55a8-6a11a3fc4387",
-   "name": "Norris Gus Powlowski",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 5.55% on 2026-04-30",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-05-05",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2047,24 +2563,28 @@
   {
    "id": "76a17a7e-398e-85f7-e57b-0e55d1ae3e55",
    "name": "Olen Basil Strosin",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.83% on 2026-08-28",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-04-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2072,99 +2592,28 @@
   {
    "id": "c65abcb1-1da1-aefa-12b4-a1486de49fb0",
    "name": "Otto Bertram Shanahan",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.09% on 2026-07-29",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-10-20",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "508fe33c-7cc2-2808-6052-1db5808cdaa2",
-   "name": "Raleigh Ira Graham",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 7.53% on 2026-10-05",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-05-05",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "61496866-5739-539f-ddd9-c79017df4c8f",
-   "name": "Reed Ambrose Langworth",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 8.47% on 2026-09-03",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-06-03",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "e8cf4730-d160-ab25-c9c9-c60cca122a48",
-   "name": "Rene Colin Powlowski",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 6.91% on 2026-01-20",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-10-15",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2172,24 +2621,28 @@
   {
    "id": "7c5f7c19-1cfd-9b1c-b616-abfdb51f0ddf",
    "name": "Rico Gordon Bauch",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.16% on 2026-03-10",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-24",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2197,49 +2650,28 @@
   {
    "id": "ca3bf3c5-3e93-c881-706f-2b16c507bbfa",
    "name": "Riley Graham Gaylord",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.51% on 2026-07-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "72a14f4f-04c9-a3a0-9a96-fda740b9b093",
-   "name": "Santiago Jes\u00fas Quiroz",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 3.05% on 2026-11-05",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-03-28",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2247,49 +2679,28 @@
   {
    "id": "0e3f2192-252e-3b95-245b-3692edc3dcc8",
    "name": "Sebastian Cristobal Hermann",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.9% on 2026-06-09",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-17",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "cfce2d8c-a97a-1435-56a0-a0bfb0f255ee",
-   "name": "Soledad Luisa Ram\u00f3n",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 4.53% on 2026-10-11",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-11-08",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2297,24 +2708,28 @@
   {
    "id": "b3aff095-17b1-db3c-3f56-b78c3c4cf845",
    "name": "Tania Celia Goodwin",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.13% on 2026-08-15",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-10-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2322,24 +2737,28 @@
   {
    "id": "0e819582-8e9a-9447-b4d8-dcc193905680",
    "name": "Tiffaney Charissa Grady",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 5.55% on 2026-02-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-07-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2347,24 +2766,28 @@
   {
    "id": "bc84659e-5baa-928d-1403-74bc4d57dc55",
    "name": "Tom\u00e1s Germ\u00e1n Salinas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 3.01% on 2026-10-01",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-03-21",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2372,24 +2795,28 @@
   {
    "id": "24cb5fc4-ad9b-c136-9036-7a5987c7f793",
    "name": "Torie Sawayn",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.85% on 2026-09-26",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-10-03",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2397,24 +2824,28 @@
   {
    "id": "59aa75ed-9006-705f-f7b8-4af0230909c2",
    "name": "Valarie Lanora Gleichner",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.04% on 2026-11-02",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-26",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2422,24 +2853,28 @@
   {
    "id": "eef6e433-c945-85a2-1bc7-f929ba6acfaf",
    "name": "Victoria Blanca Mat\u00edas",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.15% on 2026-04-06",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "no retinopathy and a retinal exam last year on 2025-12-19",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2447,24 +2882,28 @@
   {
    "id": "8a917db8-b55a-58b0-9fc4-4a163afbbb48",
    "name": "Viki Ellis Monahan",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 7.58% on 2026-06-04",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-06-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2472,24 +2911,28 @@
   {
    "id": "99fc6e02-dabf-c19d-7a6c-99f180d82ac0",
    "name": "Vina Aretha Fahey",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 6.89% on 2026-03-08",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-01-22",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0
@@ -2497,49 +2940,28 @@
   {
    "id": "89da463f-cb8c-9f86-9e71-fa2e7d4617d1",
    "name": "Vincent Tuan Ondricka",
+   "scenario": "",
    "results": [
     {
      "measure": "CMS122 A1c >9%",
      "status": "not met",
      "reason": "most recent A1c 4.63% on 2026-11-12",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS131 Eye exam",
      "status": "met",
      "reason": "retinal exam on 2026-09-18",
-     "gap": false
+     "gap": false,
+     "kind": ""
     },
     {
      "measure": "CMS951 Kidney health",
      "status": "met",
      "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
-    }
-   ],
-   "gap_count": 0
-  },
-  {
-   "id": "332043c0-fa69-ac1c-0a5b-44fe8684d499",
-   "name": "Zulema Susann Keeling",
-   "results": [
-    {
-     "measure": "CMS122 A1c >9%",
-     "status": "not met",
-     "reason": "most recent A1c 7.05% on 2026-11-08",
-     "gap": false
-    },
-    {
-     "measure": "CMS131 Eye exam",
-     "status": "met",
-     "reason": "retinal exam on 2026-08-11",
-     "gap": false
-    },
-    {
-     "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
-     "gap": false
+     "gap": false,
+     "kind": ""
     }
    ],
    "gap_count": 0

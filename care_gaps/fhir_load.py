@@ -3,6 +3,7 @@
 Only the fields the diabetes measures need are kept, so the measure
 logic in measures.py never has to walk raw FHIR.
 """
+import base64
 import json
 from dataclasses import dataclass, field
 from datetime import date
@@ -35,6 +36,19 @@ def _first_coding(concept):
     return codings[0]
 
 
+def _note_text(doc):
+    """Decode the plain-text attachment of a DocumentReference, or return ''."""
+    for content in doc.get("content") or []:
+        attachment = content.get("attachment") or {}
+        data = attachment.get("data")
+        if data and "text" in (attachment.get("contentType") or "text/plain"):
+            try:
+                return base64.b64decode(data).decode("utf-8", errors="replace")
+            except ValueError:
+                return ""
+    return ""
+
+
 @dataclass
 class Observation:
     code: str
@@ -60,6 +74,8 @@ class PatientFacts:
     observations: list = field(default_factory=list)
     procedures: list = field(default_factory=list)  # (code, display, day)
     encounters: list = field(default_factory=list)  # (class_code, display, day)
+    notes: list = field(default_factory=list)       # (day, text)
+    orders: list = field(default_factory=list)      # (code, day, status)
 
     def age_on(self, day):
         years = day.year - self.birth_date.year
@@ -105,12 +121,31 @@ def facts_from_bundle(bundle):
             start = (r.get("period") or {}).get("start")
             facts.encounters.append(((r.get("class") or {}).get("code", ""),
                                      type_coding.get("display", ""), _day(start)))
+        elif kind == "DocumentReference":
+            text = _note_text(r)
+            if text:
+                facts.notes.append((_day(r.get("date")), text))
+        elif kind == "ServiceRequest":
+            coding = _first_coding(r.get("code"))
+            facts.orders.append((coding.get("code", ""), _day(r.get("authoredOn")), r.get("status", "")))
     return facts
 
 
 def load_patient(path):
     with open(path, encoding="utf-8") as handle:
         return facts_from_bundle(json.load(handle))
+
+
+def load_if_diabetic(path):
+    """Return facts only when the raw file mentions a diabetes code; skips parsing everyone else.
+
+    A cheap text check before json parsing. It can let through a file that only mentions the
+    code somewhere odd, but has_diabetes() still decides; it never drops a real diabetic.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    if not any(f'"{code}"' in text for code in DIABETES_CODES):
+        return None
+    return facts_from_bundle(json.loads(text))
 
 
 def iter_patient_files(fhir_dir):
