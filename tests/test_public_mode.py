@@ -84,3 +84,14 @@ def test_public_entry_point_is_always_public(monkeypatch):
     import him_workbench.public as entry
     entry = importlib.reload(entry)
     assert get(entry.app.test_client(), "/patients").status_code == 404
+
+
+def test_explain_page_wording_on_a_public_site(public):
+    # Same state as the hosted demo: no NCQA spec in the cache (CI never fetches specs either).
+    html = get(public, "/care-gaps").get_data(as_text=True)
+    link = html.split('href="/care-gaps/explain?')[1].split('"')[0].replace("&amp;", "&")
+    if "measure=CMS951" in link:
+        pytest.skip("first gap is CMS951; this test needs an NCQA measure")
+    page = get(public, f"/care-gaps/explain?{link}").get_data(as_text=True)
+    assert "spec_loader.py fetch" not in page and "No local model is reachable" not in page
+    assert "public site" in page and "ecqi.healthit.gov/sites/default/files/ecqm/measures/" in page

@@ -27,7 +27,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from spec_loader import PUBLIC_TEXT_OK, load as load_specs
+from spec_loader import BASE as SPEC_BASE, PUBLIC_TEXT_OK, SPECS as SPEC_FILES, load as load_specs
 
 REPO = Path(__file__).resolve().parents[1]
 SNAPSHOT = REPO / "data" / "care_gaps.json"
@@ -98,7 +98,9 @@ def cited_sections(result, specs, public):
     out = []
     for n, name in enumerate(select_sections(result), start=1):
         if spec is None:
-            text, url, notice = None, None, None
+            # Not downloaded (always the case for NCQA measures on a public deploy): still link the source.
+            text, notice = None, None
+            url = SPEC_BASE + SPEC_FILES[key] if key in SPEC_FILES else None
         else:
             allowed = not public or key in PUBLIC_TEXT_OK
             text = spec["sections"].get(name) if allowed else None
