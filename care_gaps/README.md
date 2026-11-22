@@ -98,6 +98,20 @@ The model only rewords facts the code already found. The pass/fail decision alwa
 
 Each gap on `/care-gaps` has an **Explain** link. The page shows the measure logic's explanation first, then an optional summary from any local model you pick, then the project rules, the evidence and the spec sections with their notices. Set `HIM_PUBLIC=1` to apply the public-site rules (no NCQA text shown or sent to a model).
 
+### Summaries for a hosted demo
+
+A hosted copy has no local model, so summaries are written ahead of time on your own machine:
+
+```bash
+python3 care_gaps/precompute_summaries.py --model qwen2.5:7b   # after report.py, with Ollama running
+```
+
+It asks for each gap's summary in public mode (no NCQA spec text in the prompt) and stores only answers that pass the grounding check, with the model name and date. Rejected answers are counted and left out. The Explain page re-runs the check on a stored summary before showing it, so an edited or outdated summary is not displayed. Run it again after `report.py`, which rebuilds the snapshot without summaries.
+
+Result with `qwen2.5:7b` (seed 2026): **57 of 59 gaps got a summary that passed the check**, 2 were rejected and 0 calls failed. Both rejections cited `[S1]` in public mode, where NCQA's text isn't provided, so there was no S1 to cite; the same answers pass in local mode, where S1 exists. A hand spot-check of one stored summary per gap type (missing care, out of range, documentation, open order) found the right conclusion and next step in all four, but citations sometimes pointed at a neighboring rule (for example `[R1]` where `[R2]` was meant). The check can't catch that, which is why the page always shows the measure logic and the evidence next to a summary.
+
+The hosted demo (`him_workbench.public`) shows these stored summaries and never calls a model. See `docs/deploy-render.md`.
+
 ## Official spec text
 
 `spec_loader.py` downloads the 2026 specifications from the eCQI Resource Center and splits them into sections (Initial Population, Denominator Exclusions, Numerator, Guidance, and so on):

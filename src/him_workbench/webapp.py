@@ -8,6 +8,7 @@ is on every page. The assistant box shows the model's answer next to the raw too
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 from pathlib import Path
@@ -51,10 +52,15 @@ TABS = [
 ]
 
 
-def _host_ok(value: str | None) -> bool:
+def _host_ok(value: str | None, extra: frozenset = frozenset()) -> bool:
+    """Localhost always. `extra` holds the public hostnames from HIM_ALLOWED_HOSTS, used only in public mode."""
     if not value:
         return False
-    return urlparse("//" + value).hostname in {"127.0.0.1", "localhost", "::1"}
+    return urlparse("//" + value).hostname in {"127.0.0.1", "localhost", "::1"} | extra
+
+
+# Public, read-only mode (HIM_PUBLIC=1) for a hosted demo. Only these pages are served, GET only.
+PUBLIC_PATHS = frozenset({"/care-gaps", "/care-gaps/explain", "/about", "/sources"})
 
 
 try:
@@ -82,6 +88,9 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                sync_data: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.jinja_env.filters["clean"] = clean
+    public = os.environ.get("HIM_PUBLIC") == "1"
+    public_hosts = (frozenset(h.strip().lower() for h in os.environ.get("HIM_ALLOWED_HOSTS", "").split(",") if h.strip())
+                    if public else frozenset())
     chart_files = chart_files or {}
     ccd_files = list(ccd_files or [])
     if sync_data is None and demo_data:
@@ -148,7 +157,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
 
     @app.before_request
     def _guard():
-        if not _host_ok(request.host):
+        if not _host_ok(request.host, public_hosts):
             abort(403)
         # Sec-Fetch-Site is set by the browser and cannot be changed by a web page. "same-site" covers another
         # app on a different localhost port. Cross-site top-level navigation (a link, or the SMART sandbox
@@ -159,13 +168,29 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                 abort(403)
         if request.method == "POST":
             origin = request.headers.get("Origin")
-            if origin and not _host_ok(urlparse(origin).netloc):
+            if origin and not _host_ok(urlparse(origin).netloc, public_hosts):
                 abort(403)
             if not request.is_json:
                 abort(415)
             sent = request.headers.get("X-HIM-Token", "")
             if not secrets.compare_digest(sent.encode(), token.encode()):
                 abort(403)
+
+    if public:
+        @app.before_request
+        def _public_only():
+            # Runs after _guard, so the host check always comes first.
+            if request.method not in ("GET", "HEAD"):
+                abort(405)
+            if request.path == "/":
+                return redirect("/care-gaps")
+            if request.path in PUBLIC_PATHS or request.path.startswith("/static/"):
+                return None
+            abort(404)
+
+    @app.context_processor
+    def _public_ctx():
+        return {"public_mode": public}
 
     @app.after_request
     def _headers(resp):
@@ -482,7 +507,6 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
     @app.get("/care-gaps/explain")
     def care_gap_explain_page():
         # care_gaps/ is a standalone folder next to src/ for now; moving it into the package is a follow-up.
-        import os
         import sys
         cg_dir = Path(__file__).resolve().parents[2] / "care_gaps"
         if str(cg_dir) not in sys.path:
@@ -494,7 +518,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
             abort(404)
         d = json.loads(snapshot.read_text(encoding="utf-8"))
         try:
-            models = list_models(timeout=2)
+            models = [] if public else list_models(timeout=2)
         except Exception:  # Ollama not running: the page still works without a summary
             models = []
         model = request.args.get("model", "").strip()
@@ -505,7 +529,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
             return ollama_chat(m)([{"role": "user", "content": prompt}], [])["content"]
 
         v = cg_explain.page_data(d, request.args.get("pid", ""), request.args.get("measure", ""),
-                                 model=model or None, public=os.environ.get("HIM_PUBLIC") == "1",
+                                 model=model or None, public=public,
                                  generate=generate)
         if v is None:
             abort(404)

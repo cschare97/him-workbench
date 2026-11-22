@@ -8,7 +8,10 @@
 <p>{{ v.builtin }}</p>
 
 <h3>Plain-language summary</h3>
-{% if v.mode == "model" %}
+{% if v.mode == "precomputed" %}
+<p class="note info">{{ v.text }}</p>
+<p class="dim">Written ahead of time by {{ v.model }} on {{ v.summary_date }} without the NCQA spec text, and checked again just now: every [E#], [R#] and [S#] tag exists, and every number appears in the evidence or the cited text. The check can't confirm that a cited source supports each sentence, so compare it with the measure logic above and the evidence below.</p>
+{% elif v.mode == "model" %}
 <p class="note info">{{ v.text }}</p>
 <p class="dim">Written by {{ v.model }} and checked before display: every [E#], [R#] and [S#] tag exists, and every number appears in the evidence or the cited text. The check can't confirm that a cited source supports each sentence, so compare it with the measure logic above and the evidence below.</p>
 {% else %}

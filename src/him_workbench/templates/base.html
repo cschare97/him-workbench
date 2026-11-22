@@ -10,8 +10,13 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="/patients">HIM Workbench</a>
+    <a class="brand" href="{{ '/care-gaps' if public_mode else '/patients' }}">HIM Workbench</a>
     <nav class="topnav" aria-label="Settings and information">
+      {% if public_mode %}
+      <a href="/care-gaps" {% if nav == 'care_gaps' %}aria-current="page"{% endif %}>Care gaps</a>
+      <a href="/sources" {% if nav == 'sources' %}aria-current="page"{% endif %}>Data sources</a>
+      <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
+      {% else %}
       <a href="/patients" {% if active %}aria-current="page"{% endif %}>Home</a>
       <a href="/dashboard" {% if nav == 'dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
       <a href="/roi" {% if nav == 'roi' %}aria-current="page"{% endif %}>ROI requests</a>
@@ -30,7 +35,9 @@
           <a href="/about" {% if nav == 'about' %}aria-current="page"{% endif %}>About</a>
         </div>
       </details>
+      {% endif %}
     </nav>
+    {% if not public_mode %}
     <form class="ask" id="ask-form" role="search" autocomplete="off"{% if ask_patient %} data-patient="{{ ask_patient.id }}"{% endif %}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 3.5h12v7H8.5L5 13.5v-3H2z" stroke-linejoin="round"/></svg>
       {% set items = ['patients', 'codes', 'hcpcs'] + (['drugs'] if drugs_on else []) + (['diseases'] if education_on else []) %}
@@ -47,12 +54,15 @@
       {% endif %}
       <kbd aria-hidden="true">/</kbd>
     </form>
+    {% endif %}
   </header>
   <div class="strip" role="note">
     <span><b>Synthetic data only.</b> Do not enter real patient information.</span>
-    <span class="model">Model: <span id="model-name">{{ model or 'none selected' }}</span></span>
+    {% if public_mode %}<span class="model">Read-only demo. Summaries were written ahead of time and checked.</span>
+    {% else %}<span class="model">Model: <span id="model-name">{{ model or 'none selected' }}</span></span>{% endif %}
   </div>
 
+  {% if not public_mode %}
   <nav class="tabs" aria-label="Patient sections">
     {% for key, label, href in tabs %}
     <a class="tab" data-tex="{{ key }}" href="{{ href }}" {% if active == key %}aria-current="page"{% endif %}>
@@ -60,11 +70,13 @@
     </a>
     {% endfor %}
   </nav>
+  {% endif %}
 
   <main id="main">
     {% block content %}{% endblock %}
   </main>
 
+  {% if not public_mode %}
   <section class="answer" id="answer-panel" aria-label="Assistant answer" hidden>
     <div class="answer-head">
       <span class="q" id="answer-q"></span>
@@ -78,5 +90,6 @@
   </section>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% endif %}
 </body>
 </html>
