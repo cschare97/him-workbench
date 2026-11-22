@@ -1,7 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-{% set kind_labels = {"care": "Care gap", "documentation": "Documentation gap", "open order": "Open order"} %}
-{% set kind = request.args.get("kind", "") if request.args.get("kind", "") in kind_labels else "" %}
 <div class="page-head"><h1>Care gaps</h1>{% if d %}<span class="meta">Measurement period {{ d.period[0] }} to {{ d.period[1] }} · generated {{ d.generated }}</span>{% endif %}</div>
 {% if not d %}
 <p class="empty">No care-gap snapshot yet. Run <code>python3 care_gaps/report.py &lt;synthea fhir folder&gt; --json data/care_gaps.json</code> from the repo folder, then reload.</p>
@@ -42,28 +40,22 @@
 <p class="dim">Show only:
 {% for k, label in kind_labels.items() %}<a href="?kind={{ k | urlencode }}{% if measure %}&amp;measure={{ measure }}{% endif %}">{{ label | lower }}s</a>{% if not loop.last %} · {% endif %}{% endfor %}
 </p>
-{% set ns = namespace(shown=0) %}
 <div class="table-scroll">
-<table>
+<table class="patients-gaps">
   <thead><tr><th>Patient</th><th class="num">Gaps</th><th>Measure, type and why</th></tr></thead>
   <tbody>
-  {% for p in d.patients %}
-    {% set pg = namespace(items=[]) %}
-    {% for r in p.results if r.gap and (not measure or r.measure.startswith(measure)) and (not kind or r.kind == kind) %}{% set pg.items = pg.items + [r] %}{% endfor %}
-    {% set gaps = pg.items %}
-    {% if gaps %}
-      {% set ns.shown = ns.shown + 1 %}
-      <tr>
-        <td>{{ p.name }}{% if p.scenario %}<div class="dim">test scenario: {{ p.scenario | replace("_", " ") }}</div>{% endif %}</td>
-        <td class="num">{{ gaps | length }}</td>
-        <td>{% for r in gaps %}<div><strong>{{ r.measure }}</strong>{% if r.kind %} <span class="dim">[{{ kind_labels.get(r.kind, r.kind) }}]</span>{% endif %}: {{ r.reason }} <a href="/care-gaps/explain?pid={{ p.id | urlencode }}&amp;measure={{ r.measure.split(' ')[0] }}">Explain</a></div>{% endfor %}</td>
-      </tr>
-    {% endif %}
+  {% for row in rows %}
+    {% set p = row.patient %}
+    <tr>
+      <td>{{ p.name }}{% if p.scenario %}<div class="dim">test scenario: {{ p.scenario | replace("_", " ") }}</div>{% endif %}</td>
+      <td class="num">{{ row.gaps | length }}</td>
+      <td>{% for r in row.gaps %}<div><strong>{{ r.measure }}</strong>{% if r.kind %} <span class="dim">[{{ kind_labels.get(r.kind, r.kind) }}]</span>{% endif %}: {{ r.reason }} <a href="/care-gaps/explain?pid={{ p.id | urlencode }}&amp;measure={{ r.measure.split(' ')[0] }}">Explain</a></div>{% endfor %}</td>
+    </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
-{% if ns.shown == 0 %}<p class="empty">No gaps for this filter.</p>{% else %}<p class="dim">{{ ns.shown }} patient{{ '' if ns.shown == 1 else 's' }} shown.</p>{% endif %}
+{% if not rows %}<p class="empty">No gaps for this filter.</p>{% else %}<p class="dim">{{ rows | length }} patient{{ '' if rows | length == 1 else 's' }} shown.</p>{% endif %}
 
 <h3>How this differs from the official specs</h3>
 <ul>{% for item in d.simplifications %}<li>{{ item }}</li>{% endfor %}</ul>

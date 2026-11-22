@@ -60,7 +60,26 @@ def _host_ok(value: str | None, extra: frozenset = frozenset()) -> bool:
 
 
 # Public, read-only mode (HIM_PUBLIC=1) for a hosted demo. Only these pages are served, GET only.
-PUBLIC_PATHS = frozenset({"/care-gaps", "/care-gaps/explain", "/about", "/sources"})
+PUBLIC_PATHS = frozenset({"/care-gaps", "/care-gaps/explain", "/about", "/sources", "/favicon.ico"})
+
+CARE_GAP_KINDS = {"care": "Care gap", "documentation": "Documentation gap", "open order": "Open order"}
+
+
+def care_gap_rows(d, measure="", kind=""):
+    """Patients with at least one gap that matches the filters, most matching gaps first.
+
+    Sorting on the filtered count (not the patient's total) keeps a filtered view in a sensible order:
+    under "open orders", a patient with one open order is not pushed down by unrelated gaps.
+    """
+    rows = []
+    for p in d.get("patients", []):
+        gaps = [r for r in p.get("results", [])
+                if r.get("gap") and (not measure or r["measure"].startswith(measure))
+                and (not kind or r.get("kind") == kind)]
+        if gaps:
+            rows.append({"patient": p, "gaps": gaps})
+    rows.sort(key=lambda row: (-len(row["gaps"]), row["patient"].get("name", "")))
+    return rows
 
 
 try:
@@ -501,8 +520,17 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         measure = request.args.get("measure", "").strip()
         if measure not in {"CMS122", "CMS131", "CMS951"}:
             measure = ""
+        kind = request.args.get("kind", "").strip()
+        if kind not in CARE_GAP_KINDS:
+            kind = ""
         return render_template("care_gaps.html", active=None, nav="care_gaps", page_title="Care gaps",
-                               d=d, measure=measure)
+                               d=d, measure=measure, kind=kind, kind_labels=CARE_GAP_KINDS,
+                               rows=care_gap_rows(d, measure, kind) if d else [])
+
+    @app.get("/favicon.ico")
+    def favicon():
+        # Browsers ask for /favicon.ico on their own; point them at the SVG icon instead of a 404.
+        return redirect("/static/favicon.svg")
 
     @app.get("/care-gaps/explain")
     def care_gap_explain_page():

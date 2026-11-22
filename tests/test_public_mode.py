@@ -95,3 +95,50 @@ def test_explain_page_wording_on_a_public_site(public):
     page = get(public, f"/care-gaps/explain?{link}").get_data(as_text=True)
     assert "spec_loader.py fetch" not in page and "No local model is reachable" not in page
     assert "public site" in page and "ecqi.healthit.gov/sites/default/files/ecqm/measures/" in page
+
+
+# ---- favicon, filtered sort, print layout ----
+
+def test_favicon_redirects_to_svg(public):
+    r = get(public, "/favicon.ico")
+    assert r.status_code == 302 and r.headers["Location"].endswith("/static/favicon.svg")
+    icon = get(public, "/static/favicon.svg")
+    assert icon.status_code == 200 and icon.mimetype == "image/svg+xml"
+
+
+def test_pages_link_the_icon(public):
+    assert 'rel="icon"' in get(public, "/care-gaps").get_data(as_text=True)
+
+
+def test_filtered_view_sorts_by_matching_gaps():
+    d = {"patients": [
+        {"id": "a", "name": "Alpha", "results": [
+            {"measure": "CMS131 Eye exam", "gap": True, "kind": "care"},
+            {"measure": "CMS951 Kidney health", "gap": True, "kind": "care"},
+            {"measure": "CMS122 A1c >9%", "gap": True, "kind": "open order"}]},
+        {"id": "b", "name": "Bravo", "results": [
+            {"measure": "CMS122 A1c >9%", "gap": True, "kind": "open order"},
+            {"measure": "CMS131 Eye exam", "gap": True, "kind": "open order"}]},
+        {"id": "c", "name": "Charlie", "results": [
+            {"measure": "CMS122 A1c >9%", "gap": False, "kind": None}]},
+    ]}
+    rows = webapp.care_gap_rows(d)
+    assert [r["patient"]["id"] for r in rows] == ["a", "b"]          # unfiltered: total gaps
+    rows = webapp.care_gap_rows(d, kind="open order")
+    assert [r["patient"]["id"] for r in rows] == ["b", "a"]          # filtered: matching gaps only
+    assert [len(r["gaps"]) for r in rows] == [2, 1]
+    assert webapp.care_gap_rows(d, measure="CMS951", kind="open order") == []
+
+
+def test_bad_filter_values_are_ignored(public):
+    html = get(public, "/care-gaps?kind=<script>&measure=CMS999").get_data(as_text=True)
+    assert "<script>" not in html and "(clear filters)" not in html
+
+
+def test_print_styles_unpin_header_and_keep_notice():
+    from pathlib import Path
+    css = (Path(webapp.__file__).parent / "static" / "style.css").read_text()
+    block = css[css.index("@media print"):]
+    assert ".top, .strip { position: static" in block
+    hidden = [line for line in block.splitlines() if "display: none" in line]
+    assert hidden and not any(".strip" in line for line in hidden)   # the synthetic-data notice always prints
