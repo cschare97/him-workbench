@@ -341,3 +341,31 @@ svg.line .endlabel { fill: var(--jelly); font-size: 12px; font-weight: 600; }
   body.public .brand { font-size: 14px; }
   body.public .topnav a { padding: 0 5px; font-size: 12px; }
 }
+
+/* ---------- print / save as PDF ----------
+   The top bar and strip are pinned to the screen, which print engines repeat or drop in the wrong place.
+   In print they become normal content at the top of page 1, the screen-only parts are hidden, and the page
+   switches to dark text on white so it reads well on paper. The synthetic-data notice always prints. */
+@media print {
+  :root { --side: 0px; }
+  html, body { background: #fff !important; color: #111; }
+  body { font-size: 11pt; }
+  .top, .strip { position: static; height: auto; background: none; border-color: #999; color: #111; }
+  .top { padding: 0 0 4px; }
+  .topnav, .ask, .tabs, .answer, details.more { display: none !important; }
+  .brand { color: #111; }
+  .strip { padding: 4px 0; font-size: 9.5pt; }
+  .strip b, .strip .model { color: #111; }
+  main, body.public main { margin: 0; padding: 12px 0 0; max-width: none; }
+  h1, h3, strong, .tab b { color: #111; }
+  .dim, .meta, .lede { color: #444; }
+  a { color: #111; text-decoration: none; }
+  .note { color: #111; }
+  .table-scroll { overflow: visible; }
+  .table-scroll .summary { min-width: 0; }
+  table { border-color: #bbb; }
+  th, td { color: #111; border-color: #ccc !important; }
+  tr, .note { break-inside: avoid; }
+  h1, h3 { break-after: avoid; }
+  .flag { color: #a23a2b; }
+}
