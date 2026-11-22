@@ -1,0 +1,20 @@
+# Render Blueprint for the read-only care-gaps demo. See docs/deploy-render.md.
+services:
+  - type: web
+    name: him-workbench-care-gaps
+    runtime: python
+    plan: free
+    region: oregon
+    # Hash-checked dependencies, then this package (editable, so it finds data/ and care_gaps/ in the repo),
+    # then the CMS951 spec only. NKF's terms allow showing CMS951 text; NCQA's spec text is never downloaded here.
+    buildCommand: >-
+      pip install --require-hashes -r requirements.txt &&
+      pip install --no-deps -e . &&
+      python care_gaps/spec_loader.py fetch --only CMS951
+    startCommand: gunicorn him_workbench.public:app --workers 1 --bind 0.0.0.0:$PORT
+    autoDeployTrigger: "off"  # deploy by hand from the Render dashboard
+    envVars:
+      - key: HIM_PUBLIC
+        value: "1"
+      - key: HIM_ALLOWED_HOSTS  # the service's hostname, e.g. him-workbench-care-gaps.onrender.com
+        sync: false

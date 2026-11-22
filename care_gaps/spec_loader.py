@@ -85,11 +85,13 @@ def parse_spec(page, measure, url):
     }
 
 
-def fetch(timeout=60):
-    """Download all three specs, save the raw pages and the parsed sections under data/cache/ecqm."""
+def fetch(timeout=60, only=None):
+    """Download the specs (all three, or just `only`), save raw pages and parsed sections under data/cache/ecqm."""
     CACHE.mkdir(parents=True, exist_ok=True)
     parsed = {}
     for measure, filename in SPECS.items():
+        if only and measure not in only:
+            continue
         url = BASE + filename
         request = urllib.request.Request(url, headers={"User-Agent": "him-workbench (noncommercial portfolio)"})
         try:
@@ -114,7 +116,9 @@ def load(path=PARSED):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("fetch", help="download and parse the three specs")
+    fetch_cmd = sub.add_parser("fetch", help="download and parse the specs")
+    fetch_cmd.add_argument("--only", nargs="+", choices=sorted(SPECS),
+                           help="only these measures, e.g. --only CMS951 for a public deploy")
     show = sub.add_parser("show", help="print one section, verbatim, with its notice")
     show.add_argument("measure", choices=sorted(SPECS))
     show.add_argument("section", nargs="?", default="Numerator")
@@ -122,7 +126,7 @@ def main():
 
     if args.cmd == "fetch":
         try:
-            parsed = fetch()
+            parsed = fetch(only=set(args.only) if args.only else None)
         except SpecError as exc:
             sys.exit(str(exc))
         for m, spec in parsed.items():

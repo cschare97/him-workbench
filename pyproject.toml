@@ -15,6 +15,7 @@ dependencies = ["defusedxml>=0.7"]
 ui = ["flask>=3"]
 powerbi = ["openpyxl>=3.1"]
 dev = ["pytest", "bandit", "pip-audit"]
+deploy = ["gunicorn>=23"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

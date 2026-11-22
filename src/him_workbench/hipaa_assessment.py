@@ -94,7 +94,8 @@ A_, P_, T_, O_, D_ = "Administrative", "Physical", "Technical", "Organizational"
 # Checks used by several rows.
 NO_AUTH = lacks(("src/him_workbench/*.py",), r"login_required|flask_login|check_password|session\[|SECRET_KEY|request\.authorization")
 LOOPBACK = has("scripts/ui_cli.py", 'host="127.0.0.1"')
-HOST_GUARD = has("src/him_workbench/webapp.py", "if not _host_ok(request.host):")
+HOST_GUARD = has("src/him_workbench/webapp.py", "if not _host_ok(request.host, public_hosts):")
+PUBLIC_READ_ONLY = has("src/him_workbench/webapp.py", "PUBLIC_PATHS = frozenset(")
 NO_ENCRYPTION = lacks(("src/him_workbench/*.py",), r"sqlcipher|\bcryptography\b|\bFernet\b|\bAES\b")
 
 
@@ -204,9 +205,13 @@ def _controls() -> list[Control]:
         C("164.312(e)(1)", "Transmission security", "Integrity controls (A), encryption (A)", "A", PARTIAL, area=T_,
           evidence="The web UI talks over plain HTTP, but only on the loopback interface, so it does not cross a network. Optional "
                    "outside lookups use HTTPS. The SMART server URL and the endpoints it advertises must be https:// (loopback "
-                   "excepted) before a code or bearer token is sent. Responses carry a Content-Security-Policy, no-store and nosniff.",
-          gap="If the host binding were changed to a LAN address there would be no TLS.",
-          checks=[LOOPBACK, has("src/him_workbench/medlineplus.py", 'BASE = "https://'),
+                   "excepted) before a code or bearer token is sent. Responses carry a Content-Security-Policy, no-store and nosniff. "
+                   "The optional hosted demo (him_workbench.public) is reached over the hosting provider's HTTPS, serves only "
+                   "read-only pages built from synthetic data (care gaps, About, Data sources), refuses every write, and "
+                   "accepts only the hostnames in HIM_ALLOWED_HOSTS.",
+          gap="If the host binding were changed to a LAN address there would be no TLS. The hosted demo relies on the "
+              "provider for TLS; this project does not configure or test it.",
+          checks=[LOOPBACK, PUBLIC_READ_ONLY, tests_named("everything_else_is_not_found|no_writes_at_all", 2), has("src/him_workbench/medlineplus.py", 'BASE = "https://'),
                   has("src/him_workbench/rxnorm.py", 'BASE = "https://'),
                   has("src/him_workbench/webapp.py", "Content-Security-Policy"),
                   has("src/him_workbench/smart_fhir.py", 'DEFAULT_ISS = "https://'),
