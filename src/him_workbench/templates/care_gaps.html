@@ -53,7 +53,7 @@
       <tr>
         <td>{{ p.name }}{% if p.scenario %}<div class="dim">test scenario: {{ p.scenario | replace("_", " ") }}</div>{% endif %}</td>
         <td class="num">{{ gaps | length }}</td>
-        <td>{% for r in gaps %}<div><strong>{{ r.measure }}</strong>{% if r.kind %} <span class="dim">[{{ kind_labels.get(r.kind, r.kind) }}]</span>{% endif %}: {{ r.reason }}</div>{% endfor %}</td>
+        <td>{% for r in gaps %}<div><strong>{{ r.measure }}</strong>{% if r.kind %} <span class="dim">[{{ kind_labels.get(r.kind, r.kind) }}]</span>{% endif %}: {{ r.reason }} <a href="/care-gaps/explain?pid={{ p.id | urlencode }}&amp;measure={{ r.measure.split(' ')[0] }}">Explain</a></div>{% endfor %}</td>
       </tr>
     {% endif %}
   {% endfor %}
