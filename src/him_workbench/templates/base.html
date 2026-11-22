@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   {% if local_textures %}<style>:root { {% for n, u in local_textures.items() %}--tex-{{ n }}: url("{{ u }}"); {% endfor %} }</style>{% endif %}
 </head>
-<body>
+<body{% if public_mode %} class="public"{% endif %}>
   <header class="top">
     <a class="brand" href="{{ '/care-gaps' if public_mode else '/patients' }}">HIM Workbench</a>
     <nav class="topnav" aria-label="Settings and information">

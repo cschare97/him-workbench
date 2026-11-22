@@ -16,8 +16,9 @@
 {% if d.injected %}<p class="note">This snapshot includes test scenarios added on purpose by <code>care_gaps/inject_gaps.py</code>. Patients with a "test scenario" tag were changed; see <code>care_gaps/injected_gaps.json</code> for exactly what changed.</p>{% endif %}
 
 <h3>Summary</h3>
-<table>
-  <thead><tr><th>Measure</th><th class="num">Denominator</th><th class="num">Gaps</th><th class="num">Care</th><th class="num">Documentation</th><th class="num">Open order</th><th class="num">Rate</th><th></th></tr></thead>
+<div class="table-scroll">
+<table class="summary">
+  <thead><tr><th>Measure</th><th class="num">Denominator</th><th class="num">Gaps</th><th class="num">Care</th><th class="num">Documentation</th><th class="num">Open order</th><th class="num">Rate</th></tr></thead>
   <tbody>
   {% for s in d.summary %}
     {% set bk = s.by_kind or {} %}
@@ -29,11 +30,12 @@
       <td class="num">{{ bk.get("documentation", "") }}</td>
       <td class="num">{{ bk.get("open order", "") }}</td>
       <td class="num">{{ s.rate if s.rate is not none else 'n/a' }}%</td>
-      <td class="dim">{% if s.inverse %}Inverse: share failing, lower is better. A missing A1c counts as failing.{% else %}Share passing, higher is better.{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
+<p class="dim">CMS122 is an inverse measure: its rate is the share of patients failing, so lower is better, and a missing A1c counts as failing. For CMS131 and CMS951 the rate is the share passing, so higher is better.</p>
 
 <h3>Patients with gaps{% if measure %}: {{ measure }}{% endif %}{% if kind %}: {{ kind_labels[kind] | lower }}s{% endif %}
 {% if measure or kind %}<a class="dim" href="/care-gaps">(clear filters)</a>{% endif %}</h3>
@@ -41,6 +43,7 @@
 {% for k, label in kind_labels.items() %}<a href="?kind={{ k | urlencode }}{% if measure %}&amp;measure={{ measure }}{% endif %}">{{ label | lower }}s</a>{% if not loop.last %} · {% endif %}{% endfor %}
 </p>
 {% set ns = namespace(shown=0) %}
+<div class="table-scroll">
 <table>
   <thead><tr><th>Patient</th><th class="num">Gaps</th><th>Measure, type and why</th></tr></thead>
   <tbody>
@@ -59,6 +62,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% if ns.shown == 0 %}<p class="empty">No gaps for this filter.</p>{% else %}<p class="dim">{{ ns.shown }} patient{{ '' if ns.shown == 1 else 's' }} shown.</p>{% endif %}
 
 <h3>How this differs from the official specs</h3>
