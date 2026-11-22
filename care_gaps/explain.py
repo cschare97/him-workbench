@@ -34,7 +34,8 @@ SNAPSHOT = REPO / "data" / "care_gaps.json"
 
 KIND_LABELS = {"care": "Care gap", "documentation": "Documentation gap", "open order": "Open order"}
 NEXT_STEP = {
-    "care": "Reach out to the patient to schedule the missing test or exam, or review the out-of-range result with the care team.",
+    "care": "Reach out to the patient to schedule the missing test or exam.",
+    "care_out_of_range": "Review the out-of-range result with the care team.",
     "documentation": "Review the chart, find the outside result or report, and enter it as structured data so the measure can see it.",
     "open order": "Follow up on the open order with the lab or the patient so a result comes back.",
 }
@@ -59,6 +60,18 @@ def outcome(result):
     if result.get("gap"):
         return "This patient currently has a care gap on this measure (counts against the clinic)."
     return "This patient currently passes this measure."
+
+
+def next_step(result):
+    """Suggested next step for a gap. A care gap is either missing care or an out-of-range result."""
+    kind = result.get("kind", "")
+    if kind == "care" and "above" in result.get("reason", ""):
+        return NEXT_STEP["care_out_of_range"]
+    return NEXT_STEP.get(kind, "")
+
+
+def _sentence(text):
+    return text[:1].upper() + text[1:] if text else text
 
 
 def measure_key(measure_name):
@@ -89,7 +102,9 @@ def cited_sections(result, specs, public):
         else:
             allowed = not public or key in PUBLIC_TEXT_OK
             text = spec["sections"].get(name) if allowed else None
-            url, notice = spec["url"], spec["meta"].get("Copyright", "")
+            url = spec["url"]
+            # Both fields: NCQA puts its terms in Copyright, NKF puts them in Disclaimer.
+            notice = "\n\n".join(x for x in (spec["meta"].get("Copyright", ""), spec["meta"].get("Disclaimer", "")) if x)
         out.append({"id": f"S{n}", "name": name, "measure": key, "text": text, "url": url, "notice": notice})
     return out
 
@@ -99,31 +114,42 @@ def fallback_text(result):
     kind = result.get("kind", "")
     lines = [f"{result['measure']}: {result['reason']}."]
     if result.get("gap") and kind:
-        lines.append(f"Gap type: {KIND_LABELS.get(kind, kind)}. Suggested next step: {NEXT_STEP[kind]}")
+        lines.append(f"Gap type: {KIND_LABELS.get(kind, kind)}. Suggested next step: {next_step(result)}")
     return " ".join(lines)
 
 
-def build_prompt(result, evidence, sections):
+def project_rules(result):
+    """This project's own statements about the result, tagged [R#] so the model can cite them
+    without borrowing a spec tag. [S#] stays reserved for the stewards' published words."""
+    kind = result.get("kind", "")
+    rules = [("Measure logic result", f"{outcome(result)} {_sentence(result['reason'])}.")]
+    if WHY_IT_COUNTS.get(kind):
+        rules.append(("Why it counts this way", WHY_IT_COUNTS[kind]))
+    if result.get("gap") and next_step(result):
+        rules.append(("Suggested next step", next_step(result)))
+    return [{"id": f"R{n}", "label": label, "text": text} for n, (label, text) in enumerate(rules, start=1)]
+
+
+def build_prompt(result, evidence, sections, rules=None):
     ev_lines = [f"[{e['id']}] {e['label']}" + (f" | date {e['date']}" if e.get("date") else "")
                 + (f" | value {e['value']}" if e.get("value") is not None else "")
                 + (f" | text: {e['text']}" if e.get("text") else "") for e in evidence]
     sec_lines = [f"[{s['id']}] {s['measure']} {s['name']}: {s['text']}" for s in sections if s["text"]]
-    kind = result.get("kind", "")
+    rules = project_rules(result) if rules is None else rules
+    rule_lines = [f"[{r['id']}] {r['label']}: {r['text']}" for r in rules]
     return "\n".join([
         "You explain quality-measure results to a clinic care team. Synthetic data, not a real patient.",
         "Write 3 to 5 short sentences in plain language.",
         "Rules:",
         "- Use only the facts below. Do not add anything from memory.",
-        "- End every sentence that states a fact with its sources in brackets, like [E3] or [S1].",
+        "- End every sentence that states a fact with its sources in brackets.",
+        "- Tags: [E#] for this patient's facts, [R#] for this project's rules and next steps,",
+        "  [S#] only for what the official spec text below actually says. No other bracketed labels.",
         "- Copy dates and numbers exactly as written below. Do not calculate new numbers.",
-        "- Only use source tags in the form [E1] or [S1]. No other bracketed labels.",
         "- Do not say the measure is 'met'. Say whether the patient has a gap or passes.",
         "- Do not compare values to thresholds yourself or give medical advice.",
         "",
-        f"Outcome: {outcome(result)}",
-        f"Reason from the measure logic: {result['reason']}",
-        *([f"Why: {WHY_IT_COUNTS[kind]}"] if WHY_IT_COUNTS.get(kind) else []),
-        f"Gap type: {KIND_LABELS.get(kind, 'none')}. Suggested next step: {NEXT_STEP.get(kind, 'none')}",
+        "Project rules:", *rule_lines,
         "",
         "Evidence:", *ev_lines,
         "",
@@ -132,7 +158,7 @@ def build_prompt(result, evidence, sections):
 
 
 _BRACKET = re.compile(r"\[([^\[\]]{1,60})\]")
-_ID = re.compile(r"^[ES]\d+$")
+_ID = re.compile(r"^[ESR]\d+$")
 _CITE = _BRACKET  # kept for number stripping
 _MET = re.compile(r"\b(is|was|are) met\b", re.IGNORECASE)
 _NUM = re.compile(r"\d+(?:\.\d+)?")
@@ -146,11 +172,12 @@ def _numbers(text):
     return out
 
 
-def check_grounding(answer, result, evidence, sections):
+def check_grounding(answer, result, evidence, sections, rules=None):
     """Problems with a model answer, or [] if it passes. Strict on purpose: a rejected answer
     falls back to the deterministic explanation, which is always correct."""
     problems = []
-    known = {e["id"] for e in evidence} | {s["id"] for s in sections if s["text"]}
+    rules = project_rules(result) if rules is None else rules
+    known = {e["id"] for e in evidence} | {s["id"] for s in sections if s["text"]} | {r["id"] for r in rules}
     tags = [t.strip() for group in _BRACKET.findall(answer) for t in re.split(r"[,;]", group) if t.strip()]
     cites = {t for t in tags if _ID.match(t)}
     bad_tags = sorted({t for t in tags if not _ID.match(t)})
@@ -163,7 +190,8 @@ def check_grounding(answer, result, evidence, sections):
         problems.append("cites sources that don't exist: " + ", ".join(unknown))
     if result.get("gap") and _MET.search(answer):
         problems.append("says the measure is 'met', which reads as passing; this patient has a gap")
-    allowed = _numbers(json.dumps(evidence)) | _numbers(result["reason"]) | _numbers(result["measure"])
+    allowed = (_numbers(json.dumps(evidence)) | _numbers(result["reason"]) | _numbers(result["measure"])
+               | _numbers(json.dumps(rules)))
     for s in sections:
         if s["text"]:
             allowed |= _numbers(s["text"])
@@ -190,23 +218,42 @@ def explain(result, specs=None, model=None, public=False, generate=ollama_genera
     """Explanation for one result. Never raises for model trouble: it falls back and says why."""
     evidence = result.get("evidence", [])
     sections = cited_sections(result, specs, public)
+    rules = project_rules(result)
     out = {"measure": result["measure"], "status": result["status"], "kind": result.get("kind", ""),
            "mode": "fallback", "text": fallback_text(result), "problems": [],
-           "evidence": evidence, "sections": sections}
+           "evidence": evidence, "sections": sections, "rules": rules}
     if not model:
         out["problems"].append("no model selected")
         return out
     try:
-        answer = generate(model, build_prompt(result, evidence, sections))
+        answer = generate(model, build_prompt(result, evidence, sections, rules))
     except Exception as exc:  # network, model missing, bad JSON: all mean "use the fallback"
         out["problems"].append(f"model unavailable: {exc}")
         return out
-    problems = check_grounding(answer, result, evidence, sections)
+    problems = check_grounding(answer, result, evidence, sections, rules)
     if problems:
         out["problems"] = problems
         out["rejected_answer"] = answer
         return out
     out.update(mode="model", text=answer, model=model)
+    return out
+
+
+_LOAD = object()
+
+
+def page_data(snapshot, pid, measure, model=None, public=False, generate=ollama_generate, specs=_LOAD):
+    """Everything the explain page shows, for one patient and measure, or None if not found."""
+    patient = next((p for p in snapshot.get("patients", []) if p["id"] == pid), None)
+    if patient is None:
+        return None
+    result = next((r for r in patient["results"] if measure_key(r["measure"]) == measure), None)
+    if result is None:
+        return None
+    out = explain(result, load_specs() if specs is _LOAD else specs, model, public, generate)
+    out.update(patient_id=patient["id"], patient_name=patient["name"], scenario=patient.get("scenario", ""),
+               outcome=outcome(result), builtin=fallback_text(result), gap=result.get("gap", False),
+               kind_label=KIND_LABELS.get(result.get("kind", ""), ""), public=public)
     return out
 
 
@@ -243,6 +290,9 @@ def main():
         if out.get("rejected_answer"):
             print(f"Rejected answer:\n  {out['rejected_answer']}")
     print()
+    print("Project rules:")
+    for r in out["rules"]:
+        print(f"  [{r['id']}] {r['label']}: {r['text']}")
     print("Evidence:")
     for e in out["evidence"]:
         detail = " | ".join(str(x) for x in (e["date"], e["value"], e["text"]) if x not in (None, ""))

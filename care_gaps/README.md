@@ -86,13 +86,17 @@ python3 care_gaps/explain.py --patient "Carlos Wolf" --measure CMS122 --model qw
 ```
 
 1. It picks the spec sections that apply by rule (a missing A1c points at CMS122's Numerator), not by search. There are only a few dozen sections, and the right one is known from the result.
-2. A local model writes 3 to 5 sentences that must cite the evidence (`[E2]`) and the spec sections (`[S1]`).
+2. A local model writes 3 to 5 sentences with three kinds of source tags: `[E#]` for the patient's evidence, `[R#]` for this project's own rules and next steps, and `[S#]` only for what the steward's published spec text says. The `[R#]` tags were added after testing showed the model citing spec sections for statements that came from this project, because those statements had no tag of their own.
 3. A grounding check runs before anything is shown. Every citation must exist, and every number in the answer must appear in the evidence or the cited sections, so a made-up or calculated number gets the answer rejected.
 4. If the check fails, or no model is running, it shows the built-in explanation from the measure logic, and says why. It never shows an unchecked answer as if it were checked.
 
 The model only rewords facts the code already found. The pass/fail decision always comes from the measure logic, never from the model.
 
 **What the check can't catch.** It catches made-up numbers, calculated numbers, fake sources and labels that aren't sources. It can't tell whether a real source actually supports a sentence, or whether a conclusion built from real facts is wrong. Testing with `qwen2.5:7b` showed exactly this: an early version of the prompt said the measure status was "met" (which means failing on the inverse CMS122), and the model wrote that the patient's measure "is met" because an A1c in a note was below 9%. Every number in that answer was real, and the conclusion was backwards. Two fixes came from that test: the prompt now states the outcome in plain words and explains why a value in a note doesn't count, and the check rejects "is met" for a patient with a gap. Because no check like this is complete, the measure logic's own explanation and the evidence are always shown next to any model summary.
+
+### On the page
+
+Each gap on `/care-gaps` has an **Explain** link. The page shows the measure logic's explanation first, then an optional summary from any local model you pick, then the project rules, the evidence and the spec sections with their notices. Set `HIM_PUBLIC=1` to apply the public-site rules (no NCQA text shown or sent to a model).
 
 ## Official spec text
 

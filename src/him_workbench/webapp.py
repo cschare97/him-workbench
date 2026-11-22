@@ -479,6 +479,39 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         return render_template("care_gaps.html", active=None, nav="care_gaps", page_title="Care gaps",
                                d=d, measure=measure)
 
+    @app.get("/care-gaps/explain")
+    def care_gap_explain_page():
+        # care_gaps/ is a standalone folder next to src/ for now; moving it into the package is a follow-up.
+        import os
+        import sys
+        cg_dir = Path(__file__).resolve().parents[2] / "care_gaps"
+        if str(cg_dir) not in sys.path:
+            sys.path.insert(0, str(cg_dir))
+        import explain as cg_explain
+
+        snapshot = Path(__file__).resolve().parents[2] / "data" / "care_gaps.json"
+        if not snapshot.exists():
+            abort(404)
+        d = json.loads(snapshot.read_text(encoding="utf-8"))
+        try:
+            models = list_models(timeout=2)
+        except Exception:  # Ollama not running: the page still works without a summary
+            models = []
+        model = request.args.get("model", "").strip()
+        if model not in models:
+            model = ""
+
+        def generate(m, prompt):
+            return ollama_chat(m)([{"role": "user", "content": prompt}], [])["content"]
+
+        v = cg_explain.page_data(d, request.args.get("pid", ""), request.args.get("measure", ""),
+                                 model=model or None, public=os.environ.get("HIM_PUBLIC") == "1",
+                                 generate=generate)
+        if v is None:
+            abort(404)
+        return render_template("care_gap_explain.html", active=None, nav="care_gaps",
+                               page_title=f"{v['patient_name']}: {v['measure']}", v=v, models=models, model=model)
+
     @app.get("/local-textures/<name>")
     def local_texture(name):
         if name.rsplit(".", 1)[0] not in TEXTURE_NAMES:

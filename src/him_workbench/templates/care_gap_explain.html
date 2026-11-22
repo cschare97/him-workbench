@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>{{ v.patient_name }}: {{ v.measure }}</h1><span class="meta"><a href="/care-gaps">Back to care gaps</a></span></div>
+<p class="lede">{{ v.outcome }}{% if v.kind_label %} <strong>{{ v.kind_label }}.</strong>{% endif %}
+{% if v.scenario %}<span class="dim">Test scenario: {{ v.scenario | replace("_", " ") }}.</span>{% endif %}</p>
+
+<h3>What the measure logic found</h3>
+<p>{{ v.builtin }}</p>
+
+<h3>Plain-language summary</h3>
+{% if v.mode == "model" %}
+<p class="note info">{{ v.text }}</p>
+<p class="dim">Written by {{ v.model }} and checked before display: every [E#], [R#] and [S#] tag exists, and every number appears in the evidence or the cited text. The check can't confirm that a cited source supports each sentence, so compare it with the measure logic above and the evidence below.</p>
+{% else %}
+{% if model %}
+<p class="note">The {{ model }} answer was not shown: {{ v.problems | join("; ") }}.</p>
+{% if v.rejected_answer %}<details><summary class="dim">See the rejected answer</summary><p class="dim">{{ v.rejected_answer }}</p></details>{% endif %}
+{% else %}
+<p class="dim">No summary yet. The measure logic above is the authoritative explanation; a summary only rewords it.</p>
+{% endif %}
+{% endif %}
+{% set cm = namespace(items=[]) %}
+{% for m in models if "embed" not in m %}{% set cm.items = cm.items + [m] %}{% endfor %}
+{% if cm.items %}
+<form method="get" action="/care-gaps/explain">
+  <input type="hidden" name="pid" value="{{ v.patient_id }}">
+  <input type="hidden" name="measure" value="{{ v.measure.split(' ')[0] }}">
+  <label>Model <select name="model">{% for m in cm.items %}<option value="{{ m }}" {% if m == model %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></label>
+  <button type="submit">Write summary</button>
+</form>
+{% else %}
+<p class="dim">No local model is reachable, so only the built-in explanation is available.</p>
+{% endif %}
+
+<h3>Project rules</h3>
+<table>
+  <tbody>
+  {% for r in v.rules %}<tr><td class="dim">[{{ r.id }}]</td><td>{{ r.label }}</td><td>{{ r.text }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+
+<h3>Evidence</h3>
+<table>
+  <thead><tr><th></th><th>Fact</th><th>Date</th><th>Value</th></tr></thead>
+  <tbody>
+  {% for e in v.evidence %}
+    <tr>
+      <td class="dim">[{{ e.id }}]</td>
+      <td>{{ e.label }}{% if e.text %}<div class="dim">{{ e.text }}</div>{% endif %}</td>
+      <td>{{ e.date or "" }}</td>
+      <td class="num">{{ e.value if e.value is not none else "" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Official specification</h3>
+{% for s in v.sections %}
+<div>
+  <p><span class="dim">[{{ s.id }}]</span> <strong>{{ s.measure }} {{ s.name }}</strong>
+  {% if s.url %}<a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">source</a>{% endif %}</p>
+  {% if s.text %}
+  <pre>{{ s.text }}</pre>
+  {% elif v.public and s.url %}
+  <p class="dim">This steward's terms don't cover showing its text on a public site. Read it at the source link.</p>
+  {% else %}
+  <p class="dim">Spec text isn't downloaded yet. Run <code>python3 care_gaps/spec_loader.py fetch</code>, or read it at the source link.</p>
+  {% endif %}
+</div>
+{% endfor %}
+{% set notices = v.sections | selectattr("text") | map(attribute="notice") | unique | list %}
+{% for n in notices if n %}
+<details><summary class="dim">Copyright and terms for the text above</summary><pre>{{ n }}</pre></details>
+{% endfor %}
+<p class="note info">Synthetic data from Synthea. Teaching versions of the measures, not certified measure logic.</p>
+{% endblock %}
