@@ -31,7 +31,7 @@
   <label>Model <select name="model">{% for m in cm.items %}<option value="{{ m }}" {% if m == model %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></label>
   <button type="submit">Write summary</button>
 </form>
-{% else %}
+{% elif not v.public %}
 <p class="dim">No local model is reachable, so only the built-in explanation is available.</p>
 {% endif %}
 
@@ -64,7 +64,7 @@
   {% if s.url %}<a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">source</a>{% endif %}</p>
   {% if s.text %}
   <pre>{{ s.text }}</pre>
-  {% elif v.public and s.url %}
+  {% elif v.public %}
   <p class="dim">This steward's terms don't cover showing its text on a public site. Read it at the source link.</p>
   {% else %}
   <p class="dim">Spec text isn't downloaded yet. Run <code>python3 care_gaps/spec_loader.py fetch</code>, or read it at the source link.</p>
