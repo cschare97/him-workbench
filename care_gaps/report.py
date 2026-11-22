@@ -32,7 +32,8 @@ def run(fhir_dir):
         for result in evaluate(facts):
             rows.append({"patient_id": facts.patient_id, "name": facts.name,
                          "measure": result.measure, "status": result.status,
-                         "reason": result.reason, "kind": result.kind})
+                         "reason": result.reason, "kind": result.kind,
+                         "evidence": result.evidence})
     return rows
 
 
@@ -76,7 +77,8 @@ def to_json(rows, scenarios=None):
                                                   "scenario": scenarios.get(r["patient_id"], ""),
                                                   "results": []})
         p["results"].append({"measure": r["measure"], "status": r["status"], "reason": r["reason"],
-                             "gap": is_gap(r["measure"], r["status"]), "kind": r.get("kind", "")})
+                             "gap": is_gap(r["measure"], r["status"]), "kind": r.get("kind", ""),
+                             "evidence": r.get("evidence", [])})
     in_any = [p for p in patients.values()
               if any(x["status"] != "not in denominator" for x in p["results"])]
     for p in in_any:
@@ -106,7 +108,8 @@ def main():
     rows = run(args.fhir_dir)
     if args.csv:
         with open(args.csv, "w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else ["patient_id"])
+            fields = ["patient_id", "name", "measure", "status", "reason", "kind"]
+            writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(rows)
     if args.json:

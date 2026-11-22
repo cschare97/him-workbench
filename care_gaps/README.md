@@ -70,6 +70,12 @@ The five baseline patients with no A1c are also missing both kidney labs: one ro
 
 CMS951's denominator is 94, not 99: five patients were diagnosed with diabetes during 2026, and CMS951 only counts diabetes present at the start of the period.
 
+## Evidence behind each result
+
+Every result in the snapshot carries the facts behind it, numbered `E1`, `E2`, and so on: age and the measure's age range, diabetes diagnosis date, latest outpatient visit, lab results in the period (newest first, up to five), the last result before the period when there are none, matching note excerpts, open orders, and exclusions. The evidence is gathered separately from the pass/fail logic, so it can never change a result. It lets the page explain a gap without the Synthea files, which matters for a hosted demo.
+
+Example: one baseline patient fails CMS122 with no A1c in 2026, but her evidence shows an A1c on 2025-12-17. She isn't uncontrolled. Her test landed two weeks before the period started.
+
 ## Official spec text
 
 `spec_loader.py` downloads the 2026 specifications from the eCQI Resource Center and splits them into sections (Initial Population, Denominator Exclusions, Numerator, Guidance, and so on):

@@ -9,7 +9,7 @@ These are teaching versions, not certified measure logic. Simplifications
 are listed in SIMPLIFICATIONS so nobody mistakes this for the official spec.
 """
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from fhir_load import (
@@ -54,6 +54,7 @@ class MeasureResult:
     status: str   # "met", "not met", "excluded" or "not in denominator"
     reason: str
     kind: str = ""  # gap type when this result is a care gap, else ""
+    evidence: list = field(default_factory=list)  # facts behind the result, see gather_evidence()
 
 
 def _note_mention(facts, pattern):
@@ -217,6 +218,110 @@ def cms951(facts):
 
 MEASURES = (cms122, cms131, cms951)
 
+# ---------------------------------------------------------------------------
+# Evidence: the facts behind each result, so an explanation can point at them.
+# Gathered separately from the pass/fail logic above, so it can never change a result.
+# Each item: {"id": "E1", "type", "label", "date", "value", "text"}. Dates are ISO strings.
+# ---------------------------------------------------------------------------
+
+MAX_RESULTS_SHOWN = 5   # most recent lab results listed per test
+EXCERPT_CHARS = 240     # note excerpt length, centered on the match
+
+
+def _item(kind, label, day=None, value=None, text=None):
+    return {"type": kind, "label": label, "date": day.isoformat() if day else None,
+            "value": value, "text": text}
+
+
+def _excerpt(text, pattern):
+    """A short, single-line window of a note around the first match."""
+    m = pattern.search(text)
+    if not m:
+        return None
+    half = EXCERPT_CHARS // 2
+    start, end = max(0, m.start() - half), min(len(text), m.end() + half)
+    snippet = " ".join(text[start:end].split())
+    return ("..." if start else "") + snippet + ("..." if end < len(text) else "")
+
+
+def _lab_items(facts, code, label):
+    """Results for one test in the period, newest first, plus the last one before it if there are none."""
+    in_period = sorted((o for o in facts.observations if o.code == code and _in_period(o.day)),
+                       key=lambda o: o.day, reverse=True)
+    items = [_item("lab", label, o.day, o.value) for o in in_period[:MAX_RESULTS_SHOWN]]
+    if len(in_period) > MAX_RESULTS_SHOWN:
+        items.append(_item("summary", f"{label}: {len(in_period)} results in the period, "
+                                      f"{MAX_RESULTS_SHOWN} most recent listed"))
+    if not in_period:
+        before = [o for o in facts.observations if o.code == code and o.day and o.day < PERIOD_START]
+        if before:
+            last = max(before, key=lambda o: o.day)
+            items.append(_item("lab", f"{label} (last result before the period)", last.day, last.value))
+        else:
+            items.append(_item("absent", f"No {label} result on file"))
+    return items
+
+
+def _note_items(facts, pattern, label):
+    hits = sorted(((day, text) for day, text in facts.notes if _in_period(day) and pattern.search(text)),
+                  reverse=True)
+    return [_item("note", label, day, text=_excerpt(text, pattern)) for day, text in hits[:2]]
+
+
+def _common_items(facts, max_age, diabetes_at_start):
+    items = [_item("demographic", "Age at end of period", value=facts.age_on(PERIOD_END)),
+             _item("demographic", "Measure age range", value=f"18-{max_age}")]
+    onsets = [c.onset for c in facts.conditions if c.code in DIABETES_CODES and c.onset]
+    if onsets:
+        items.append(_item("condition", "Diabetes diagnosed", min(onsets)))
+        if diabetes_at_start:
+            items.append(_item("rule", "This measure requires diabetes before the period starts",
+                               value=PERIOD_START.isoformat()))
+    visits = [day for cls, _d, day in facts.encounters if cls in OUTPATIENT_CLASSES and _in_period(day)]
+    items.append(_item("visit", "Most recent outpatient visit in the period", max(visits)) if visits
+                 else _item("absent", "No outpatient visit in the period"))
+    if facts.deceased:
+        items.append(_item("demographic", "Date of death", facts.deceased))
+    if _in_hospice_or_palliative(facts):
+        items.append(_item("exclusion", "Hospice or palliative care in the period"))
+    return items
+
+
+def gather_evidence(measure_name, facts):
+    if measure_name.startswith("CMS122"):
+        items = _common_items(facts, 75, False)
+        items += _lab_items(facts, A1C_LOINC, "HbA1c")
+        items += _note_items(facts, A1C_NOTE, "Note mentioning an A1c")
+        items += [_item("order", "HbA1c ordered", day, value=status)
+                  for c, day, status in facts.orders if c == A1C_LOINC and _in_period(day)]
+    elif measure_name.startswith("CMS131"):
+        items = _common_items(facts, 75, False)
+        prior_start = PERIOD_START.replace(year=PERIOD_START.year - 1)
+        exams = sorted((day for code, _d, day in facts.procedures
+                        if code == RETINAL_EXAM_SNOMED and day and day >= prior_start), reverse=True)
+        items += [_item("procedure", "Retinal eye exam" + ("" if _in_period(d) else " (year before the period)"), d)
+                  for d in exams[:MAX_RESULTS_SHOWN]]
+        if not exams:
+            items.append(_item("absent", "No retinal eye exam on file in the period or the year before"))
+        items.append(_item("condition", "Diabetic retinopathy diagnosis",
+                           value="yes" if _has_retinopathy(facts) else "no"))
+        items += _note_items(facts, EYE_NOTE, "Note mentioning an eye exam")
+    elif measure_name.startswith("CMS951"):
+        items = _common_items(facts, 85, True)
+        items += _lab_items(facts, EGFR_LOINC, "eGFR")
+        items += _lab_items(facts, UACR_LOINC, "Urine albumin/creatinine ratio (uACR)")
+        kidney = _kidney_exclusion(facts)
+        if kidney:
+            items.append(_item("exclusion", f"{kidney}, active in the period"))
+    else:
+        items = []
+    for n, item in enumerate(items, start=1):
+        item["id"] = f"E{n}"
+    return items
+
 
 def evaluate(facts):
-    return [measure(facts) for measure in MEASURES]
+    results = [measure(facts) for measure in MEASURES]
+    for r in results:
+        r.evidence = gather_evidence(r.measure, facts)
+    return results

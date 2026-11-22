@@ -260,3 +260,70 @@ def test_cms951_esrd_resolved_before_period_is_not_excluded():
     p = make_patient()
     p.conditions.append(Condition("46177005", "End-stage renal disease", date(2020, 1, 1), date(2024, 6, 1)))
     assert cms951(p).status != "excluded"
+
+
+# --- evidence (5b) ---
+
+def _ev(results, prefix):
+    from measures import evaluate  # noqa: F401
+    return next(r for r in results if r.measure.startswith(prefix)).evidence
+
+
+def test_evidence_ids_are_sequential_and_json_safe():
+    import json
+    from measures import evaluate
+    p = make_patient()
+    a1c(p, date(2026, 9, 1), 7.0)
+    for r in evaluate(p):
+        assert [e["id"] for e in r.evidence] == [f"E{i}" for i in range(1, len(r.evidence) + 1)]
+        json.dumps(r.evidence)
+
+
+def test_missing_a1c_shows_last_result_before_period():
+    from measures import evaluate
+    p = make_patient()
+    a1c(p, date(2025, 11, 3), 7.9)
+    labels = {e["label"]: e for e in _ev(evaluate(p), "CMS122")}
+    last = labels["HbA1c (last result before the period)"]
+    assert last["date"] == "2025-11-03" and last["value"] == 7.9
+
+
+def test_no_a1c_ever_is_stated_as_absent():
+    from measures import evaluate
+    assert any(e["type"] == "absent" and "HbA1c" in e["label"] for e in _ev(evaluate(make_patient()), "CMS122"))
+
+
+def test_documentation_gap_evidence_includes_note_excerpt():
+    from measures import evaluate
+    p = make_patient()
+    p.notes.append((date(2026, 5, 1), "Long visit text. " * 20 + "Outside lab: Hemoglobin A1c 7.4%. " + "More. " * 30))
+    notes = [e for e in _ev(evaluate(p), "CMS122") if e["type"] == "note"]
+    assert notes and "A1c 7.4%" in notes[0]["text"] and len(notes[0]["text"]) < 300
+
+
+def test_many_a1c_results_are_capped_with_a_summary():
+    from measures import evaluate
+    p = make_patient()
+    for m in range(1, 10):
+        a1c(p, date(2026, m, 1), 7.0)
+    ev = _ev(evaluate(p), "CMS122")
+    assert len([e for e in ev if e["type"] == "lab"]) == 5
+    assert any(e["type"] == "summary" and "9 results" in e["label"] for e in ev)
+    assert [e["date"] for e in ev if e["type"] == "lab"][0] == "2026-09-01"  # newest first
+
+
+def test_cms951_evidence_states_its_own_age_range_and_exclusion():
+    from measures import evaluate
+    p = make_patient()
+    p.conditions.append(Condition("46177005", "End-stage renal disease (disorder)", date(2023, 1, 1), None))
+    ev = _ev(evaluate(p), "CMS951")
+    assert any(e["label"] == "Measure age range" and e["value"] == "18-85" for e in ev)
+    assert any(e["type"] == "exclusion" and "End-stage renal disease" in e["label"] for e in ev)
+
+
+def test_evidence_does_not_change_results():
+    from measures import evaluate
+    p = make_patient()
+    a1c(p, date(2026, 9, 1), 9.6)
+    statuses = [(r.measure, r.status, r.kind) for r in evaluate(p)]
+    assert statuses == [(f(p).measure, f(p).status, f(p).kind) for f in (cms122, cms131, cms951)]
