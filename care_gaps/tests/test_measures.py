@@ -215,3 +215,48 @@ def test_word_a1c_inside_other_word_does_not_match():
     p = make_patient()
     p.notes.append((date(2026, 3, 9), "code XA1C99 in the billing note"))
     assert cms122(p).kind == "care"
+
+
+# --- CMS951 follows its own spec (ages 18-85, diabetes at start, ESRD/CKD5 exclusions) ---
+
+def test_cms951_includes_age_80_but_cms122_does_not():
+    p = make_patient(birth=date(1946, 3, 1))
+    assert cms122(p).status == "not in denominator"
+    assert cms951(p).status != "not in denominator"
+
+
+def test_cms951_excludes_age_86():
+    assert cms951(make_patient(birth=date(1940, 1, 1))).status == "not in denominator"
+
+
+def test_diabetes_diagnosed_during_period_counts_for_cms122_not_cms951():
+    p = make_patient(diabetes=False)
+    p.conditions.append(Condition("44054006", "Diabetes mellitus type 2", date(2026, 4, 1), None))
+    assert cms122(p).status != "not in denominator"
+    result = cms951(p)
+    assert result.status == "not in denominator" and "during the period" in result.reason
+
+
+def test_cms951_excludes_active_esrd():
+    p = make_patient()
+    p.conditions.append(Condition("46177005", "End-stage renal disease (disorder)", date(2023, 1, 1), None))
+    assert cms951(p).status == "excluded"
+    assert cms122(p).status != "excluded"  # ESRD is not a CMS122 exclusion
+
+
+def test_cms951_excludes_ckd5_by_name():
+    p = make_patient()
+    p.conditions.append(Condition("999", "Chronic kidney disease stage 5 (disorder)", date(2024, 1, 1), None))
+    assert cms951(p).status == "excluded"
+
+
+def test_cms951_ckd4_is_not_excluded():
+    p = make_patient()
+    p.conditions.append(Condition("431857002", "Chronic kidney disease stage 4 (disorder)", date(2024, 1, 1), None))
+    assert cms951(p).status != "excluded"
+
+
+def test_cms951_esrd_resolved_before_period_is_not_excluded():
+    p = make_patient()
+    p.conditions.append(Condition("46177005", "End-stage renal disease", date(2020, 1, 1), date(2024, 6, 1)))
+    assert cms951(p).status != "excluded"

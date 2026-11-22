@@ -24,11 +24,16 @@ OUTPATIENT_CLASSES = {"AMB", "VR"}  # ambulatory and virtual visits
 SIMPLIFICATIONS = [
     "A qualifying visit is any ambulatory or virtual encounter in the period, "
     "not the exact visit value sets in the spec.",
-    "Exclusions cover hospice and palliative care only. The frailty and "
-    "advanced-illness exclusion for ages 66+ is not implemented.",
+    "Exclusions implemented: hospice and palliative care (all three), plus ESRD and CKD "
+    "stage 5 for CMS951. Not implemented: the ages 66+ frailty/advanced-illness and "
+    "long-term nursing home exclusions (CMS122, CMS131) and bilateral absence of eyes (CMS131).",
     "Patients who died before the end of the period are left out.",
     "Codes are matched on a few common Synthea codes, not full VSAC value sets.",
     "Glucose management indicator (GMI) is not used for CMS122, only HbA1c.",
+    "CMS131 counts retinal or dilated eye exams only. The spec also accepts autonomous AI "
+    "eye exams and retinal exam findings, which are not checked.",
+    "CMS951 counts a uACR result only. The spec also accepts separate urine albumin and "
+    "urine creatinine results within four days of each other, which Synthea does not produce.",
     "Gap types (care, documentation, open order) are this project's own triage labels, "
     "not part of any eCQM. A documentation gap comes from a keyword match in a note, "
     "so it means 'worth a chart review', not proof the care happened.",
@@ -67,15 +72,35 @@ def _in_period(day):
     return day is not None and PERIOD_START <= day <= PERIOD_END
 
 
-def has_diabetes(facts):
+def has_diabetes(facts, by=PERIOD_END):
+    """Active type 1 or type 2 diabetes diagnosed on or before `by` and not resolved before the period."""
     for c in facts.conditions:
         if c.code not in DIABETES_CODES:
             continue
-        started = c.onset is None or c.onset <= PERIOD_END
+        started = c.onset is None or c.onset <= by
         still_active = c.abated is None or c.abated >= PERIOD_START
         if started and still_active:
             return True
     return False
+
+
+# CMS951 exclusions. Matched by SNOMED code, or by name for other codings of the same disorder.
+ESRD_CODES = {"46177005"}      # End-stage renal disease
+CKD5_CODES = {"433146000"}     # Chronic kidney disease stage 5
+KIDNEY_EXCLUSION_WORDS = ("end-stage renal disease", "end stage renal disease", "chronic kidney disease stage 5")
+
+
+def _kidney_exclusion(facts):
+    """Name of an ESRD or CKD stage 5 diagnosis active during the period, or None."""
+    for c in facts.conditions:
+        named = any(w in c.display.lower() for w in KIDNEY_EXCLUSION_WORDS)
+        if c.code not in ESRD_CODES | CKD5_CODES and not named:
+            continue
+        started = c.onset is None or c.onset <= PERIOD_END
+        still_active = c.abated is None or c.abated >= PERIOD_START
+        if started and still_active:
+            return c.display or c.code
+    return None
 
 
 def _has_outpatient_visit(facts):
@@ -89,18 +114,25 @@ def _in_hospice_or_palliative(facts):
     return any(w in t.lower() for t in texts for w in HOSPICE_PALLIATIVE_WORDS)
 
 
-def denominator_check(facts):
-    """Shared denominator for all three measures. Returns (in_denominator, reason)."""
+def denominator_check(facts, max_age=75, diabetes_at_start=False):
+    """Denominator shared by the measures, with each spec's own age range and diabetes timing.
+
+    CMS122 and CMS131: ages 18-75 by the end of the period, diabetes during the period.
+    CMS951: ages 18-85, diabetes already diagnosed at the start of the period.
+    Returns (in_denominator, reason).
+    """
     if facts.deceased and facts.deceased <= PERIOD_END:
         return False, "died before the end of the measurement period"
     age = facts.age_on(PERIOD_END)
-    if not 18 <= age <= 75:
-        return False, f"age {age} at end of period is outside 18-75"
-    if not has_diabetes(facts):
+    if not 18 <= age <= max_age:
+        return False, f"age {age} at end of period is outside 18-{max_age}"
+    if not has_diabetes(facts, by=PERIOD_START if diabetes_at_start else PERIOD_END):
+        if diabetes_at_start and has_diabetes(facts):
+            return False, "diabetes was diagnosed during the period, not before its start"
         return False, "no active type 1 or type 2 diabetes diagnosis"
     if not _has_outpatient_visit(facts):
         return False, "no outpatient visit in the measurement period"
-    return True, "diabetic, age 18-75, seen in the period"
+    return True, f"diabetic, age 18-{max_age}, seen in the period"
 
 
 def _results_in_period(facts, code):
@@ -167,11 +199,14 @@ def cms131(facts):
 
 def cms951(facts):
     name = "CMS951 Kidney health"
-    ok, why = denominator_check(facts)
+    ok, why = denominator_check(facts, max_age=85, diabetes_at_start=True)
     if not ok:
         return MeasureResult(name, "not in denominator", why)
     if _in_hospice_or_palliative(facts):
         return MeasureResult(name, "excluded", "hospice or palliative care in the period")
+    kidney = _kidney_exclusion(facts)
+    if kidney:
+        return MeasureResult(name, "excluded", f"{kidney} active during the period")
     has_egfr = bool(_results_in_period(facts, EGFR_LOINC))
     has_uacr = bool(_results_in_period(facts, UACR_LOINC))
     if has_egfr and has_uacr:

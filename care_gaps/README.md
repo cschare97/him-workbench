@@ -8,7 +8,7 @@ Finds which diabetic patients fail three public diabetes quality measures, says 
 |---|---|
 | CMS122v14 Glycemic Status Assessment > 9% | **Failing.** This is an inverse measure: the latest A1c in the period is above 9%, or there's no A1c at all |
 | CMS131v14 Diabetes: Eye Exam | Retinal exam in the period, or the prior year if the patient has no retinopathy |
-| CMS951v4 Kidney Health Evaluation | Both an eGFR and a urine albumin/creatinine ratio in the period |
+| CMS951v4 Kidney Health Evaluation | Both an eGFR and a urine albumin/creatinine ratio in the period. Ages 18-85, diabetes diagnosed before the period starts, and ESRD or CKD stage 5 excluded |
 
 These are simplified teaching versions, not certified measure logic. `report.py` prints the full list of simplifications every run.
 
@@ -62,11 +62,40 @@ Every change is listed in `injected_gaps.json`, and every added note or order is
 |---|---|---|
 | CMS122 A1c > 9% | 5 (all care) | 17 (10 care, 4 documentation, 3 open order) |
 | CMS131 Eye exam | 32 (all care) | 36 (32 care, 4 documentation) |
-| CMS951 Kidney health | 6 (all care) | 6 (all care) |
+| CMS951 Kidney health | 6 (all care), denominator 94 | 6 (all care), denominator 94 |
 
 On the unmodified baseline, the note check flags zero documentation gaps, so it isn't firing on Synthea's normal visit notes.
 
 The five baseline patients with no A1c are also missing both kidney labs: one root cause (no lab work drawn this year), not three separate problems.
+
+CMS951's denominator is 94, not 99: five patients were diagnosed with diabetes during 2026, and CMS951 only counts diabetes present at the start of the period.
+
+## Official spec text
+
+`spec_loader.py` downloads the 2026 specifications from the eCQI Resource Center and splits them into sections (Initial Population, Denominator Exclusions, Numerator, Guidance, and so on):
+
+```bash
+python3 care_gaps/spec_loader.py fetch            # run from the repo root
+python3 care_gaps/spec_loader.py show CMS122 Numerator
+```
+
+The specs are copyrighted by their measure stewards, and their terms differ:
+
+- **NCQA (CMS122, CMS131).** The 2026 notice allows use for internal, noncommercial purposes without approval. All other uses must be approved by NCQA.
+- **National Kidney Foundation (CMS951).** The measures may be reproduced and distributed, without modification, for noncommercial purposes.
+
+So:
+
+- Spec text is never committed to this repo. It is saved under `data/cache/` (gitignored), and each person downloads it from eCQI for their own use.
+- When spec text is shown, it is shown exactly as published, never paraphrased or edited, with that measure's copyright notice and a link to the source page.
+- A public deployment does not show NCQA's text for CMS122 and CMS131. It links to the eCQI page instead (`PUBLIC_TEXT_OK` in `spec_loader.py`).
+- The measure logic in this folder is original code written from the public specifications. It does not copy their text.
+
+Stewards update their terms between versions, so re-read each notice after a new fetch. This is a good-faith reading of the published terms, not legal advice.
+
+The tests use a made-up page with the same layout, not real spec text.
+
+Checking the measure code against the spec text found a real bug: CMS951 had been using CMS122's age range (18-75) and had no ESRD or CKD stage 5 exclusion. Both are fixed and covered by tests.
 
 ## Data-quality note
 

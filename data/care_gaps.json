@@ -37,8 +37,8 @@
   },
   {
    "measure": "CMS951 Kidney health",
-   "denominator": 99,
-   "met": 93,
+   "denominator": 94,
+   "met": 88,
    "gaps": 6,
    "by_kind": {
     "care": 6,
@@ -46,17 +46,19 @@
     "open order": 0
    },
    "excluded": 1,
-   "not_in_denominator": 23,
-   "rate": 93.9,
+   "not_in_denominator": 28,
+   "rate": 93.6,
    "inverse": false
   }
  ],
  "simplifications": [
   "A qualifying visit is any ambulatory or virtual encounter in the period, not the exact visit value sets in the spec.",
-  "Exclusions cover hospice and palliative care only. The frailty and advanced-illness exclusion for ages 66+ is not implemented.",
+  "Exclusions implemented: hospice and palliative care (all three), plus ESRD and CKD stage 5 for CMS951. Not implemented: the ages 66+ frailty/advanced-illness and long-term nursing home exclusions (CMS122, CMS131) and bilateral absence of eyes (CMS131).",
   "Patients who died before the end of the period are left out.",
   "Codes are matched on a few common Synthea codes, not full VSAC value sets.",
   "Glucose management indicator (GMI) is not used for CMS122, only HbA1c.",
+  "CMS131 counts retinal or dilated eye exams only. The spec also accepts autonomous AI eye exams and retinal exam findings, which are not checked.",
+  "CMS951 counts a uACR result only. The spec also accepts separate urine albumin and urine creatinine results within four days of each other, which Synthea does not produce.",
   "Gap types (care, documentation, open order) are this project's own triage labels, not part of any eCQM. A documentation gap comes from a keyword match in a note, so it means 'worth a chart review', not proof the care happened."
  ],
  "gap_kinds": {
@@ -1479,8 +1481,8 @@
     },
     {
      "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "status": "not in denominator",
+     "reason": "diabetes was diagnosed during the period, not before its start",
      "gap": false,
      "kind": ""
     }
@@ -1566,8 +1568,8 @@
     },
     {
      "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "status": "not in denominator",
+     "reason": "diabetes was diagnosed during the period, not before its start",
      "gap": false,
      "kind": ""
     }
@@ -2639,8 +2641,8 @@
     },
     {
      "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "status": "not in denominator",
+     "reason": "diabetes was diagnosed during the period, not before its start",
      "gap": false,
      "kind": ""
     }
@@ -2697,8 +2699,8 @@
     },
     {
      "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "status": "not in denominator",
+     "reason": "diabetes was diagnosed during the period, not before its start",
      "gap": false,
      "kind": ""
     }
@@ -2900,8 +2902,8 @@
     },
     {
      "measure": "CMS951 Kidney health",
-     "status": "met",
-     "reason": "eGFR and urine albumin/creatinine ratio both in the period",
+     "status": "not in denominator",
+     "reason": "diabetes was diagnosed during the period, not before its start",
      "gap": false,
      "kind": ""
     }
