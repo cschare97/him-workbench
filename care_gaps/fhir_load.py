@@ -25,6 +25,11 @@ def _day(value):
     return date.fromisoformat(value[:10]) if value else None
 
 
+def clean_name(name):
+    """Drop the numbers Synthea appends to each name part ("Annamae625 Beatty507" -> "Annamae Beatty")."""
+    return " ".join(part.rstrip("0123456789") for part in name.split() if part.rstrip("0123456789"))
+
+
 def _first_coding(concept):
     codings = (concept or {}).get("coding") or [{}]
     return codings[0]
@@ -69,7 +74,7 @@ def facts_from_bundle(bundle):
     name = patient.get("name", [{}])[0]
     facts = PatientFacts(
         patient_id=patient["id"],
-        name=" ".join(name.get("given", []) + [name.get("family", "")]).strip(),
+        name=clean_name(" ".join(name.get("given", []) + [name.get("family", "")])),
         birth_date=_day(patient["birthDate"]),
         deceased=_day(patient.get("deceasedDateTime")),
     )

@@ -138,3 +138,28 @@ def test_kidney_met_with_both():
     p.observations.append(Observation(EGFR_LOINC, date(2026, 5, 1), 85))
     p.observations.append(Observation(UACR_LOINC, date(2026, 5, 1), 12))
     assert cms951(p).status == "met"
+
+
+# --- page snapshot ---
+
+def test_snapshot_marks_gaps_and_sorts_worst_first():
+    from report import to_json
+    rows = [
+        {"patient_id": "a", "name": "Ann", "measure": "CMS122 A1c >9%", "status": "not met", "reason": "ok"},
+        {"patient_id": "a", "name": "Ann", "measure": "CMS131 Eye exam", "status": "met", "reason": "ok"},
+        {"patient_id": "b", "name": "Bob", "measure": "CMS122 A1c >9%", "status": "met", "reason": "missing"},
+        {"patient_id": "b", "name": "Bob", "measure": "CMS131 Eye exam", "status": "not met", "reason": "no exam"},
+        {"patient_id": "c", "name": "Cy", "measure": "CMS122 A1c >9%", "status": "not in denominator", "reason": "dead"},
+    ]
+    snap = to_json(rows)
+    assert [p["name"] for p in snap["patients"]] == ["Bob", "Ann"]  # Cy is in no denominator
+    assert snap["patients"][0]["gap_count"] == 2
+    cms122 = next(s for s in snap["summary"] if s["measure"].startswith("CMS122"))
+    assert cms122["gaps"] == 1 and cms122["inverse"]
+
+
+def test_clean_name_drops_synthea_numbers():
+    from fhir_load import clean_name
+    assert clean_name("Annamae625 Luciana251 Beatty507") == "Annamae Luciana Beatty"
+    assert clean_name("Julianne852 O'Reilly797") == "Julianne O'Reilly"
+    assert clean_name("Pedro316 Martín25 Farías160") == "Pedro Martín Farías"

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head"><h1>Care gaps</h1>{% if d %}<span class="meta">Measurement period {{ d.period[0] }} to {{ d.period[1] }} · generated {{ d.generated }}</span>{% endif %}</div>
+{% if not d %}
+<p class="empty">No care-gap snapshot yet. Run <code>python3 care_gaps/report.py &lt;synthea fhir folder&gt; --json data/care_gaps.json</code> from the repo folder, then reload.</p>
+{% else %}
+<p class="lede">Diabetic patients checked against three public diabetes quality measures (2026 eCQM versions). Each gap shows the reason, so you can tell a clinical problem from a documentation problem.</p>
+
+<h3>Summary</h3>
+<table>
+  <thead><tr><th>Measure</th><th class="num">Denominator</th><th class="num">Gaps</th><th class="num">Rate</th><th class="num">Excluded</th><th></th></tr></thead>
+  <tbody>
+  {% for s in d.summary %}
+    <tr>
+      <td><a href="?measure={{ s.measure.split(' ')[0] }}">{{ s.measure }}</a></td>
+      <td class="num">{{ s.denominator }}</td>
+      <td class="num {{ 'flag' if s.gaps else '' }}">{{ s.gaps }}</td>
+      <td class="num">{{ s.rate if s.rate is not none else 'n/a' }}%</td>
+      <td class="num">{{ s.excluded }}</td>
+      <td class="dim">{% if s.inverse %}Inverse measure: the rate is the share failing, so lower is better. A missing A1c counts as failing.{% else %}The rate is the share passing, so higher is better.{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Patients with gaps{% if measure %}: {{ measure }} <a class="dim" href="/care-gaps">(show all measures)</a>{% endif %}</h3>
+{% set ns = namespace(shown=0) %}
+<table>
+  <thead><tr><th>Patient</th><th class="num">Gaps</th><th>Measure and why</th></tr></thead>
+  <tbody>
+  {% for p in d.patients %}
+    {% set pg = namespace(items=[]) %}
+    {% for r in p.results if r.gap and (not measure or r.measure.startswith(measure)) %}{% set pg.items = pg.items + [r] %}{% endfor %}
+    {% set gaps = pg.items %}
+    {% if gaps %}
+      {% set ns.shown = ns.shown + 1 %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="num">{{ gaps | length }}</td>
+        <td>{% for r in gaps %}<div><strong>{{ r.measure }}</strong>: {{ r.reason }}</div>{% endfor %}</td>
+      </tr>
+    {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+{% if ns.shown == 0 %}<p class="empty">No gaps for this filter.</p>{% else %}<p class="dim">{{ ns.shown }} patient{{ '' if ns.shown == 1 else 's' }} shown.</p>{% endif %}
+
+<h3>How this differs from the official specs</h3>
+<ul>{% for item in d.simplifications %}<li>{{ item }}</li>{% endfor %}</ul>
+<p class="note info">Synthetic data from Synthea. Teaching versions of the measures, not certified measure logic.</p>
+{% endif %}
+{% endblock %}
