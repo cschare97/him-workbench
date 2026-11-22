@@ -223,7 +223,12 @@ def explain(result, specs=None, model=None, public=False, generate=ollama_genera
            "mode": "fallback", "text": fallback_text(result), "problems": [],
            "evidence": evidence, "sections": sections, "rules": rules}
     if not model:
-        out["problems"].append("no model selected")
+        stored = result.get("summary")
+        if stored and check_grounding(stored["text"], result, evidence, sections, rules) == []:
+            # Written ahead of time by precompute_summaries.py, re-checked here before display.
+            out.update(mode="precomputed", text=stored["text"], model=stored["model"], summary_date=stored["date"])
+        else:
+            out["problems"].append("no stored summary that passes the check" if stored else "no model selected")
         return out
     try:
         answer = generate(model, build_prompt(result, evidence, sections, rules))
