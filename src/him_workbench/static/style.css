@@ -278,6 +278,27 @@ button.quiet:hover { border-color: var(--teal); filter: none; }
 }
 @media (prefers-reduced-motion: reduce) { .answer { animation: none; } }
 
+/* ---------- wide tables scroll sideways on small screens instead of crushing columns ---------- */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll .summary { min-width: 520px; }
+.table-scroll .summary td:first-child { white-space: nowrap; }
+
+/* ---------- public read-only demo (HIM_PUBLIC=1): no patient tabs, no assistant ---------- */
+body.public { --side: 0px; }
+body.public main { margin: 0 auto; max-width: 1000px; }
+@media (max-width: 860px) {
+  /* The nav is the only navigation in public mode, so it stays visible; the strip gets room for two lines. */
+  body.public { --strip: 44px; }
+  body.public .topnav { display: flex; }
+  body.public .top { gap: 10px; padding: 0 10px; }
+  body.public .brand { font-size: 16px; }
+  body.public .topnav { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+  body.public .topnav a { padding: 0 6px; font-size: 12.5px; }
+  body.public .strip { line-height: 1.35; padding: 0 12px; }
+  body.public .strip .model { display: none; }
+  body.public main { padding: calc(var(--top) + var(--strip) + 18px) 16px 60px; }
+}
+
 /* ROI requests */
 .roi-form, .ref-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 14px; align-items: end; max-width: 900px; margin: 8px 0 14px; }
 .roi-form label, .ref-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--jelly); }
@@ -316,3 +337,7 @@ svg.line .axis { fill: var(--jelly-dim); font-size: 11px; }
 svg.line .ln { fill: none; stroke: #3987e5; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 svg.line .dot { fill: #3987e5; stroke: var(--char); stroke-width: 2; }
 svg.line .endlabel { fill: var(--jelly); font-size: 12px; font-weight: 600; }
+@media (max-width: 380px) {
+  body.public .brand { font-size: 14px; }
+  body.public .topnav a { padding: 0 5px; font-size: 12px; }
+}
