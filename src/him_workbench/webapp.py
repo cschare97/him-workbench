@@ -469,6 +469,16 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
     def about_page():
         return render_template("about.html", active=None, nav="about", page_title="About")
 
+    @app.get("/care-gaps")
+    def care_gaps_page():
+        snapshot = Path(__file__).resolve().parents[2] / "data" / "care_gaps.json"
+        d = json.loads(snapshot.read_text(encoding="utf-8")) if snapshot.exists() else None
+        measure = request.args.get("measure", "").strip()
+        if measure not in {"CMS122", "CMS131", "CMS951"}:
+            measure = ""
+        return render_template("care_gaps.html", active=None, nav="care_gaps", page_title="Care gaps",
+                               d=d, measure=measure)
+
     @app.get("/local-textures/<name>")
     def local_texture(name):
         if name.rsplit(".", 1)[0] not in TEXTURE_NAMES:

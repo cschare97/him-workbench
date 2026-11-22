@@ -1,0 +1,112 @@
+{
+ "seed": 2026,
+ "source": "fhir",
+ "patients_written": 123,
+ "kept_resource_types": [
+  "Condition",
+  "DocumentReference",
+  "Encounter",
+  "Observation",
+  "Patient",
+  "Procedure",
+  "ServiceRequest"
+ ],
+ "changes": [
+  {
+   "patient_id": "21178a7c-2845-9ca2-0f9c-9dfb83a59963",
+   "name": "Carlos Wolf",
+   "scenario": "a1c_in_note",
+   "change": "removed 1 structured A1c result(s) in 2026 and added a note on 2026-10-07 saying an outside lab A1c was 6.1%"
+  },
+  {
+   "patient_id": "4b58cd0b-b5b1-f63c-db9e-06af7e16fdac",
+   "name": "Kimbra Vera Hoppe",
+   "scenario": "a1c_in_note",
+   "change": "removed 1 structured A1c result(s) in 2026 and added a note on 2026-10-22 saying an outside lab A1c was 6.9%"
+  },
+  {
+   "patient_id": "bce3d8e9-ecbb-89b9-e17e-98d83fb30ddb",
+   "name": "Pedro Mart\u00edn Far\u00edas",
+   "scenario": "a1c_in_note",
+   "change": "removed 1 structured A1c result(s) in 2026 and added a note on 2026-10-19 saying an outside lab A1c was 6.0%"
+  },
+  {
+   "patient_id": "508fe33c-7cc2-2808-6052-1db5808cdaa2",
+   "name": "Raleigh Ira Graham",
+   "scenario": "a1c_in_note",
+   "change": "removed 1 structured A1c result(s) in 2026 and added a note on 2026-10-05 saying an outside lab A1c was 7.5%"
+  },
+  {
+   "patient_id": "61496866-5739-539f-ddd9-c79017df4c8f",
+   "name": "Reed Ambrose Langworth",
+   "scenario": "open_order",
+   "change": "removed 3 structured A1c result(s) in 2026 and added an A1c order on 2026-09-03 with no result"
+  },
+  {
+   "patient_id": "cfce2d8c-a97a-1435-56a0-a0bfb0f255ee",
+   "name": "Soledad Luisa Ram\u00f3n",
+   "scenario": "open_order",
+   "change": "removed 10 structured A1c result(s) in 2026 and added an A1c order on 2026-10-11 with no result"
+  },
+  {
+   "patient_id": "8f179be4-504d-e5cc-1d23-5bef49feacdf",
+   "name": "Micaela Graciela Rodr\u00edguez",
+   "scenario": "open_order",
+   "change": "removed 1 structured A1c result(s) in 2026 and added an A1c order on 2026-07-30 with no result"
+  },
+  {
+   "patient_id": "e8cf4730-d160-ab25-c9c9-c60cca122a48",
+   "name": "Rene Colin Powlowski",
+   "scenario": "uncontrolled",
+   "change": "changed the most recent A1c on 2026-01-20 from 6.91% to 9.9%"
+  },
+  {
+   "patient_id": "332043c0-fa69-ac1c-0a5b-44fe8684d499",
+   "name": "Zulema Susann Keeling",
+   "scenario": "uncontrolled",
+   "change": "changed the most recent A1c on 2026-11-08 from 7.05% to 11.7%"
+  },
+  {
+   "patient_id": "e8325a68-2c62-9f39-875f-5076d5d3a41c",
+   "name": "Kristi Scott Reichel",
+   "scenario": "uncontrolled",
+   "change": "changed the most recent A1c on 2026-01-13 from 7.41% to 11.6%"
+  },
+  {
+   "patient_id": "c3c0ebad-37e8-876d-c9ad-0e6c37a4ea89",
+   "name": "Freeman Jacinto Bailey",
+   "scenario": "uncontrolled",
+   "change": "changed the most recent A1c on 2026-11-16 from 5.93% to 11.3%"
+  },
+  {
+   "patient_id": "87eecb1b-6e00-2f98-fd12-b2dc23b590e4",
+   "name": "Manuela Marroqu\u00edn",
+   "scenario": "uncontrolled",
+   "change": "changed the most recent A1c on 2026-07-30 from 6.6% to 11.8%"
+  },
+  {
+   "patient_id": "5a7aa494-a75e-27bb-e4aa-ab0845724967",
+   "name": "Leanne Tera Schiller",
+   "scenario": "outside_eye_exam",
+   "change": "removed 2 retinal exam record(s) since 2025 and added a note on 2026-06-12 about an outside eye exam"
+  },
+  {
+   "patient_id": "4684a689-fddf-8aa6-55a8-6a11a3fc4387",
+   "name": "Norris Gus Powlowski",
+   "scenario": "outside_eye_exam",
+   "change": "removed 2 retinal exam record(s) since 2025 and added a note on 2026-05-05 about an outside eye exam"
+  },
+  {
+   "patient_id": "49243349-4c0d-9996-e79c-3c34d315c5f0",
+   "name": "Athena Mara Davis",
+   "scenario": "outside_eye_exam",
+   "change": "removed 2 retinal exam record(s) since 2025 and added a note on 2026-05-09 about an outside eye exam"
+  },
+  {
+   "patient_id": "72a14f4f-04c9-a3a0-9a96-fda740b9b093",
+   "name": "Santiago Jes\u00fas Quiroz",
+   "scenario": "outside_eye_exam",
+   "change": "removed 2 retinal exam record(s) since 2025 and added a note on 2026-03-28 about an outside eye exam"
+  }
+ ]
+}

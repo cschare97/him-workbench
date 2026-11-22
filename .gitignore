@@ -23,3 +23,4 @@ secrets/
 credentials*
 *.egg-info/
 *.tgz
+!data/care_gaps.json
