@@ -7,10 +7,12 @@ is on every page. The assistant box shows the model's answer next to the raw too
 
 from __future__ import annotations
 
+import collections
 import json
 import os
 import secrets
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import urlparse
@@ -63,6 +65,59 @@ def _host_ok(value: str | None, extra: frozenset = frozenset()) -> bool:
 PUBLIC_PATHS = frozenset({"/care-gaps", "/care-gaps/explain", "/about", "/sources", "/favicon.ico"})
 
 CARE_GAP_KINDS = {"care": "Care gap", "documentation": "Documentation gap", "open order": "Open order"}
+
+
+class RateLimiter:
+    """Sliding-window request limit per client, in memory (the hosted demo runs one worker).
+
+    Render sits behind Cloudflare, which sets True-Client-IP / CF-Connecting-IP itself from the address it
+    saw; a client cannot set those the way it can add to X-Forwarded-For (Render appends to that header
+    without clearing it). Locally neither header exists, so the socket address is used.
+    """
+
+    def __init__(self, limit=120, window=60.0, max_clients=10000, clock=None):
+        self.limit, self.window, self.max_clients = limit, window, max_clients
+        self.clock = clock or time.monotonic
+        self.hits = collections.OrderedDict()
+
+    @staticmethod
+    def client_key(req):
+        return (req.headers.get("True-Client-IP") or req.headers.get("CF-Connecting-IP")
+                or req.remote_addr or "unknown").strip()
+
+    def allow(self, key):
+        """Record a request; return seconds to wait when over the limit, else 0."""
+        now = self.clock()
+        times = self.hits.pop(key, None) or collections.deque()
+        while times and now - times[0] >= self.window:
+            times.popleft()
+        if len(times) >= self.limit:
+            self.hits[key] = times
+            return max(1, int(self.window - (now - times[0])) + 1)
+        times.append(now)
+        self.hits[key] = times                      # most recently seen last
+        while len(self.hits) > self.max_clients:    # bound memory: drop the longest-idle client
+            self.hits.popitem(last=False)
+        return 0
+
+
+def load_data_quality(repo_root):
+    """data/data_quality.json from care_gaps.data_quality, or None. Kept apart from care_gaps.json."""
+    path = Path(repo_root) / "data" / "data_quality.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def data_quality_view(dq, d):
+    """Page-ready data-quality notes, joined to the care-gap snapshot for the CMS122 count."""
+    if not dq:
+        return None
+    by_id = {p["id"]: p for p in dq.get("patients", [])}
+    cms122 = {p["id"]: r["status"] for p in (d or {}).get("patients", []) for r in p.get("results", [])
+              if r["measure"].startswith("CMS122")}
+    passing_on_low = [p for p in dq.get("patients", [])
+                      if p.get("latest_in_period_low") and cms122.get(p["id"]) == "not met"]
+    return {"dq": dq, "by_id": by_id, "passing_on_low": passing_on_low,
+            "low_list": [p for p in dq.get("patients", []) if p.get("low_count")]}
 
 
 def care_gap_rows(d, measure="", kind=""):
@@ -196,11 +251,21 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                 abort(403)
 
     if public:
+        limiter = RateLimiter(limit=int(os.environ.get("HIM_RATE_LIMIT", "120")))
+        app.config["HIM_RATE_LIMITER"] = limiter
+
         @app.before_request
         def _public_only():
             # Runs after _guard, so the host check always comes first.
             if request.method not in ("GET", "HEAD"):
                 abort(405)
+            if not request.path.startswith("/static/"):
+                wait = limiter.allow(RateLimiter.client_key(request))
+                if wait:
+                    resp = app.make_response(("Too many requests. Please wait a minute and try again.\n", 429))
+                    resp.headers["Retry-After"] = str(wait)
+                    resp.mimetype = "text/plain"
+                    return resp
             if request.path == "/":
                 return redirect("/care-gaps")
             if request.path in PUBLIC_PATHS or request.path.startswith("/static/"):
@@ -523,9 +588,10 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
         kind = request.args.get("kind", "").strip()
         if kind not in CARE_GAP_KINDS:
             kind = ""
+        dqv = data_quality_view(load_data_quality(Path(__file__).resolve().parents[2]), d)
         return render_template("care_gaps.html", active=None, nav="care_gaps", page_title="Care gaps",
                                d=d, measure=measure, kind=kind, kind_labels=CARE_GAP_KINDS,
-                               rows=care_gap_rows(d, measure, kind) if d else [])
+                               rows=care_gap_rows(d, measure, kind) if d else [], dqv=dqv)
 
     @app.get("/favicon.ico")
     def favicon():
@@ -556,8 +622,11 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
                                  generate=generate)
         if v is None:
             abort(404)
+        dq = load_data_quality(Path(__file__).resolve().parents[2]) or {}
+        dq_patient = next((p for p in dq.get("patients", []) if p["id"] == request.args.get("pid", "")), None)
         return render_template("care_gap_explain.html", active=None, nav="care_gaps",
-                               page_title=f"{v['patient_name']}: {v['measure']}", v=v, models=models, model=model)
+                               page_title=f"{v['patient_name']}: {v['measure']}", v=v, models=models, model=model,
+                               dq_patient=dq_patient)
 
     @app.get("/local-textures/<name>")
     def local_texture(name):

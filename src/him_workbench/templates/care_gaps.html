@@ -35,6 +35,17 @@
 </div>
 <p class="dim">CMS122 is an inverse measure: its rate is the share of patients failing, so lower is better, and a missing A1c counts as failing. For CMS131 and CMS951 the rate is the share passing, so higher is better.</p>
 
+{% if dqv %}{% set dq = dqv.dq %}
+<h3>Data-quality notes</h3>
+<p class="note">These don't change any result above. <strong>{{ dqv.passing_on_low | length }} patient{{ '' if dqv.passing_on_low | length == 1 else 's' }}</strong> pass CMS122 on a most recent A1c under {{ dq.rules.low_a1c_under | int }}%, a value a reviewer should confirm before trusting the pass. {{ dq.repeat_patients }} of {{ dq.patients_checked }} diabetic patients have the same A1c value {{ dq.rules.repeat_run_at_least }} or more times in a row, which is a Synthea pattern: real lab results rarely repeat exactly.</p>
+<details><summary>{{ dqv.low_list | length }} patients with any A1c under {{ dq.rules.low_a1c_under | int }}%</summary>
+<div class="table-scroll"><table>
+  <thead><tr><th>Patient</th><th>Notes</th></tr></thead>
+  <tbody>{% for p in dqv.low_list %}<tr><td>{{ p.name }}</td><td>{% for n in p.notes %}<div>{{ n }}</div>{% endfor %}</td></tr>{% endfor %}</tbody>
+</table></div>
+</details>
+{% endif %}
+
 <h3>Patients with gaps{% if measure %}: {{ measure }}{% endif %}{% if kind %}: {{ kind_labels[kind] | lower }}s{% endif %}
 {% if measure or kind %}<a class="dim" href="/care-gaps">(clear filters)</a>{% endif %}</h3>
 <p class="dim">Show only:
@@ -47,7 +58,7 @@
   {% for row in rows %}
     {% set p = row.patient %}
     <tr>
-      <td>{{ p.name }}{% if p.scenario %}<div class="dim">test scenario: {{ p.scenario | replace("_", " ") }}</div>{% endif %}</td>
+      <td>{{ p.name }}{% if p.scenario %}<div class="dim">test scenario: {{ p.scenario | replace("_", " ") }}</div>{% endif %}{% if dqv and dqv.by_id.get(p.id, {}).get("low_count") %}<div class="dim">data note: A1c under {{ dqv.dq.rules.low_a1c_under | int }}%</div>{% endif %}</td>
       <td class="num">{{ row.gaps | length }}</td>
       <td>{% for r in row.gaps %}<div><strong>{{ r.measure }}</strong>{% if r.kind %} <span class="dim">[{{ kind_labels.get(r.kind, r.kind) }}]</span>{% endif %}: {{ r.reason }} <a href="/care-gaps/explain?pid={{ p.id | urlencode }}&amp;measure={{ r.measure.split(' ')[0] }}">Explain</a></div>{% endfor %}</td>
     </tr>

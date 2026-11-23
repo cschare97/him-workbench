@@ -10,15 +10,23 @@ runs `him_workbench.public`, which turns on public mode (`HIM_PUBLIC=1`):
   `him_workbench.care_gaps.precompute_summaries` and re-checks each one before showing it.
 - NCQA spec text (CMS122, CMS131) is never downloaded or shown. The build fetches the CMS951 spec
   only, which NKF's terms allow showing with its notice.
+- Each client gets 120 requests a minute (static files not counted; `HIM_RATE_LIMIT` changes it), then a
+  429 with `Retry-After`. The client is identified by `True-Client-IP` / `CF-Connecting-IP`, which
+  Cloudflare (in front of Render) sets itself, never by `X-Forwarded-For`, which Render appends to
+  without clearing, so a client could fake it. The count is in memory, so it resets on each deploy or
+  wake-up, which is fine for one worker.
 - Data is synthetic (Synthea). Nothing is written to disk at runtime.
 
 ## Before deploying
 
-1. On your own machine, rebuild the snapshot and its summaries, then commit `data/care_gaps.json`:
+1. On your own machine, rebuild the snapshot and its summaries, then commit `data/care_gaps.json` and
+   `data/data_quality.json`. `report` always rebuilds the snapshot without summaries, so run
+   `precompute_summaries` right after it, every time:
 
    ```bash
-   cd care_gaps && python3 report.py ~/synthea/output_caregap_injected --json ../data/care_gaps.json --scenarios injected_gaps.json && cd ..
+   python3 -m him_workbench.care_gaps.report ~/synthea/output_caregap_injected --json data/care_gaps.json --scenarios data/injected_gaps.json
    python3 -m him_workbench.care_gaps.precompute_summaries --model qwen2.5:7b
+   python3 -m him_workbench.care_gaps.data_quality ~/synthea/output_caregap_injected --json data/data_quality.json
    ```
 
 2. Try public mode locally:
@@ -38,6 +46,11 @@ runs `him_workbench.public`, which turns on public mode (`HIM_PUBLIC=1`):
 3. Deploys are manual (`autoDeployTrigger: off`). Use **Manual Deploy** after merging to main.
 
 If every page returns 403, `HIM_ALLOWED_HOSTS` doesn't match the hostname in the browser's address bar.
+
+## Deploys from Blueprint changes
+
+A merge that changes `render.yaml` makes Render apply the Blueprint, which starts a deploy on its own
+even with manual deploys. Check the deploy list before clicking Manual Deploy.
 
 ## Free plan notes
 

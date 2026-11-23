@@ -39,6 +39,9 @@ python3 -m him_workbench.care_gaps.inject_gaps ~/synthea/output_caregap/fhir ~/s
 # 3. Build the snapshot the /care-gaps page reads
 python3 -m him_workbench.care_gaps.report ~/synthea/output_caregap_injected --json data/care_gaps.json --scenarios data/injected_gaps.json
 
+# 4. Data-quality notes (a separate file; never touches care_gaps.json)
+python3 -m him_workbench.care_gaps.data_quality ~/synthea/output_caregap_injected --json data/data_quality.json
+
 # Tests
 python3 -m pytest tests -q -k care_gaps
 ```
@@ -141,6 +144,20 @@ The tests use a made-up page with the same layout, not real spec text.
 
 Checking the measure code against the spec text found a real bug: CMS951 had been using CMS122's age range (18-75) and had no ESRD or CKD stage 5 exclusion. Both are fixed and covered by tests.
 
-## Data-quality note
+## Data-quality notes
 
-Some Synthea A1c values are clinically implausible (below 4%). A real HIM review would flag these before trusting the measure.
+`data_quality.py` checks every diabetic patient's A1c history for two things that look like source-data
+problems rather than care problems, and writes them to `data/data_quality.json`. It never changes a
+measure result and never rebuilds `care_gaps.json`, so stored summaries are safe.
+
+- **Under 4%.** Possible in real life (for example over-treatment) but rare enough that a reviewer would
+  ask. The check calls out when the most recent A1c in the period is under 4%, because that is the value
+  CMS122 grades. Result (seed 2026): 19 of 123 diabetic patients have a value under 4%; for 10 it is the
+  most recent in the period, and **9 of them pass CMS122 on it** (the 10th is excluded).
+- **Same value 3+ times in a row.** Real lab results almost never repeat exactly. Synthea carries values
+  forward: 96 of 123 patients have at least one run, some over 90 results long. Because it is nearly
+  universal, the page shows it as one note, not a tag on each patient.
+
+The care-gaps page shows a summary and the list of patients with values under 4% (and tags those rows);
+each Explain page shows that patient's notes. A real HIM review would confirm these values before
+trusting the measure.

@@ -57,6 +57,12 @@
   </tbody>
 </table>
 
+{% if dq_patient %}
+<h3>Data-quality notes</h3>
+<p class="note">{% for n in dq_patient.notes %}{{ n }}.{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+<p class="dim">These come from a separate check of this patient's A1c history (<code>him_workbench.care_gaps.data_quality</code>). They don't change the measure result above.</p>
+{% endif %}
+
 <h3>Official specification</h3>
 {% for s in v.sections %}
 <div>
