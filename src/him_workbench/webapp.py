@@ -534,12 +534,7 @@ def create_app(*, icd: ICD10Index | None = None, hcpcs: HCPCSIndex | None = None
 
     @app.get("/care-gaps/explain")
     def care_gap_explain_page():
-        # care_gaps/ is a standalone folder next to src/ for now; moving it into the package is a follow-up.
-        import sys
-        cg_dir = Path(__file__).resolve().parents[2] / "care_gaps"
-        if str(cg_dir) not in sys.path:
-            sys.path.insert(0, str(cg_dir))
-        import explain as cg_explain
+        from .care_gaps import explain as cg_explain
 
         snapshot = Path(__file__).resolve().parents[2] / "data" / "care_gaps.json"
         if not snapshot.exists():

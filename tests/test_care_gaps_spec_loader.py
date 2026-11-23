@@ -2,14 +2,10 @@
 
 The real spec text is copyrighted by the measure stewards, so it is never copied into this repo.
 """
-import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from spec_loader import SpecError, parse_spec
+from him_workbench.care_gaps.spec_loader import SpecError, parse_spec
 
 
 def row(label, value):
@@ -55,5 +51,5 @@ def test_missing_copyright_is_an_error_not_a_silent_skip():
 
 
 def test_ncqa_text_is_not_marked_for_public_display():
-    from spec_loader import PUBLIC_TEXT_OK
+    from him_workbench.care_gaps.spec_loader import PUBLIC_TEXT_OK
     assert "CMS122" not in PUBLIC_TEXT_OK and "CMS131" not in PUBLIC_TEXT_OK

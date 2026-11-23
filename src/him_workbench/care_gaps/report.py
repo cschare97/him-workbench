@@ -1,8 +1,8 @@
 """Run the diabetes measures over a folder of Synthea FHIR bundles.
 
 Usage:
-    python3 report.py ~/synthea/output_caregap/fhir --json ../data/care_gaps.json
-    python3 report.py <injected folder> --json ../data/care_gaps.json --scenarios injected_gaps.json
+    python3 -m him_workbench.care_gaps.report ~/synthea/output_caregap/fhir --json data/care_gaps.json
+    python3 -m him_workbench.care_gaps.report <injected folder> --json data/care_gaps.json --scenarios data/injected_gaps.json
 """
 import argparse
 import csv
@@ -10,8 +10,8 @@ import json
 from collections import Counter
 from datetime import date
 
-from fhir_load import iter_patient_files, load_if_diabetic
-from measures import CARE, DOCUMENTATION, OPEN_ORDER, PERIOD_END, PERIOD_START, SIMPLIFICATIONS, evaluate, has_diabetes
+from .fhir_load import iter_patient_files, load_if_diabetic
+from .measures import CARE, DOCUMENTATION, OPEN_ORDER, PERIOD_END, PERIOD_START, SIMPLIFICATIONS, evaluate, has_diabetes
 
 KINDS = (CARE, DOCUMENTATION, OPEN_ORDER)
 

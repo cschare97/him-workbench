@@ -16,8 +16,8 @@ text for measures outside PUBLIC_TEXT_OK is never shown or sent to a model; the 
 is linked instead.
 
 Usage (from the repo root):
-    python3 care_gaps/explain.py --patient "Carlos Wolf" --measure CMS122
-    python3 care_gaps/explain.py --patient "Carlos Wolf" --measure CMS122 --model qwen2.5:7b
+    python3 -m him_workbench.care_gaps.explain --patient "Carlos Wolf" --measure CMS122
+    python3 -m him_workbench.care_gaps.explain --patient "Carlos Wolf" --measure CMS122 --model qwen2.5:7b
 """
 import argparse
 import json
@@ -27,9 +27,9 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from spec_loader import BASE as SPEC_BASE, PUBLIC_TEXT_OK, SPECS as SPEC_FILES, load as load_specs
+from .spec_loader import BASE as SPEC_BASE, PUBLIC_TEXT_OK, SPECS as SPEC_FILES, load as load_specs
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[3]
 SNAPSHOT = REPO / "data" / "care_gaps.json"
 
 KIND_LABELS = {"care": "Care gap", "documentation": "Documentation gap", "open order": "Open order"}

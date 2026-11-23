@@ -9,8 +9,8 @@ The source folder is never modified. Output bundles keep only the resource types
 measures read (no claims or billing resources), which also makes them much smaller.
 
 Usage:
-    python3 inject_gaps.py ~/synthea/output_caregap/fhir ~/synthea/output_caregap_injected \
-        --log injected_gaps.json
+    python3 -m him_workbench.care_gaps.inject_gaps ~/synthea/output_caregap/fhir ~/synthea/output_caregap_injected \
+        --log data/injected_gaps.json
 """
 import argparse
 import base64
@@ -20,8 +20,8 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from fhir_load import A1C_LOINC, DIABETES_CODES, RETINAL_EXAM_SNOMED, facts_from_bundle, iter_patient_files
-from measures import PERIOD_END, PERIOD_START, cms122, cms131
+from .fhir_load import A1C_LOINC, DIABETES_CODES, RETINAL_EXAM_SNOMED, facts_from_bundle, iter_patient_files
+from .measures import PERIOD_END, PERIOD_START, cms122, cms131
 
 KEEP_TYPES = {"Patient", "Condition", "Observation", "Procedure", "Encounter",
               "DocumentReference", "ServiceRequest"}

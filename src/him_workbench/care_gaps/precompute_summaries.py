@@ -9,7 +9,7 @@ Answers that fail the check are counted and left out. Nothing unchecked is ever 
 Run it after report.py, because report.py rebuilds the snapshot from scratch.
 
 Usage (from the repo root):
-    python3 care_gaps/precompute_summaries.py --model qwen2.5:7b
+    python3 -m him_workbench.care_gaps.precompute_summaries --model qwen2.5:7b
 """
 import argparse
 import json
@@ -17,8 +17,8 @@ import sys
 from collections import Counter
 from datetime import date
 
-from explain import SNAPSHOT, check_grounding, cited_sections, explain, ollama_generate, project_rules
-from spec_loader import load as load_specs
+from .explain import SNAPSHOT, check_grounding, cited_sections, explain, ollama_generate, project_rules
+from .spec_loader import load as load_specs
 
 
 def precompute(snapshot, model, specs, generate=ollama_generate, today=None, progress=None):

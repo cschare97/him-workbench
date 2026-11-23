@@ -1,5 +1,7 @@
 # care_gaps: diabetes quality-measure gaps on synthetic patients
 
+Code: `src/him_workbench/care_gaps/` (part of the `him_workbench` package, so CI's Bandit scan covers it). Tests: `tests/test_care_gaps_*.py`. Commands below run from the repo root.
+
 Finds which diabetic patients fail three public diabetes quality measures, says why, and sorts each gap into a type. The gap type separates care that didn't happen from care that probably happened but isn't on file as structured data. Uses Synthea synthetic FHIR data only. No real patient data.
 
 ## Measures (2026 eCQM versions, from ecqi.healthit.gov)
@@ -31,14 +33,14 @@ A documentation gap comes from a keyword match in a note, so it means "worth a c
 ./run_synthea -s 2026 -p 1500 -a 18-75 -r 20261120 --exporter.baseDirectory=./output_caregap/ California
 
 # 2. Add the test scenarios (writes a new folder; the source is never changed)
-cd care_gaps
-python3 inject_gaps.py ~/synthea/output_caregap/fhir ~/synthea/output_caregap_injected --log injected_gaps.json
+# (run these from the repo root)
+python3 -m him_workbench.care_gaps.inject_gaps ~/synthea/output_caregap/fhir ~/synthea/output_caregap_injected --log data/injected_gaps.json
 
 # 3. Build the snapshot the /care-gaps page reads
-python3 report.py ~/synthea/output_caregap_injected --json ../data/care_gaps.json --scenarios injected_gaps.json
+python3 -m him_workbench.care_gaps.report ~/synthea/output_caregap_injected --json data/care_gaps.json --scenarios data/injected_gaps.json
 
 # Tests
-python3 -m pytest tests -q
+python3 -m pytest tests -q -k care_gaps
 ```
 
 To see the unmodified baseline, run `report.py` on `~/synthea/output_caregap/fhir` without `--scenarios`.
@@ -81,8 +83,8 @@ Example: one baseline patient fails CMS122 with no A1c in 2026, but her evidence
 `explain.py` answers "why is this patient failing this measure?":
 
 ```bash
-python3 care_gaps/explain.py --patient "Carlos Wolf" --measure CMS122                     # no model
-python3 care_gaps/explain.py --patient "Carlos Wolf" --measure CMS122 --model qwen2.5:7b  # local Ollama
+python3 -m him_workbench.care_gaps.explain --patient "Carlos Wolf" --measure CMS122                     # no model
+python3 -m him_workbench.care_gaps.explain --patient "Carlos Wolf" --measure CMS122 --model qwen2.5:7b  # local Ollama
 ```
 
 1. It picks the spec sections that apply by rule (a missing A1c points at CMS122's Numerator), not by search. There are only a few dozen sections, and the right one is known from the result.
@@ -103,7 +105,7 @@ Each gap on `/care-gaps` has an **Explain** link. The page shows the measure log
 A hosted copy has no local model, so summaries are written ahead of time on your own machine:
 
 ```bash
-python3 care_gaps/precompute_summaries.py --model qwen2.5:7b   # after report.py, with Ollama running
+python3 -m him_workbench.care_gaps.precompute_summaries --model qwen2.5:7b   # after report.py, with Ollama running
 ```
 
 It asks for each gap's summary in public mode (no NCQA spec text in the prompt) and stores only answers that pass the grounding check, with the model name and date. Rejected answers are counted and left out. The Explain page re-runs the check on a stored summary before showing it, so an edited or outdated summary is not displayed. Run it again after `report.py`, which rebuilds the snapshot without summaries.
@@ -117,8 +119,8 @@ The hosted demo (`him_workbench.public`) shows these stored summaries and never 
 `spec_loader.py` downloads the 2026 specifications from the eCQI Resource Center and splits them into sections (Initial Population, Denominator Exclusions, Numerator, Guidance, and so on):
 
 ```bash
-python3 care_gaps/spec_loader.py fetch            # run from the repo root
-python3 care_gaps/spec_loader.py show CMS122 Numerator
+python3 -m him_workbench.care_gaps.spec_loader fetch            # run from the repo root
+python3 -m him_workbench.care_gaps.spec_loader show CMS122 Numerator
 ```
 
 The specs are copyrighted by their measure stewards, and their terms differ:

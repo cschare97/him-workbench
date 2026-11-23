@@ -3,7 +3,7 @@
     gunicorn him_workbench.public:app
 
 Public mode serves only the care-gaps pages, About and Data sources, GET only. It never calls a
-model (summaries are written ahead of time by care_gaps/precompute_summaries.py) and never shows
+model (summaries are written ahead of time by him_workbench.care_gaps.precompute_summaries) and never shows
 NCQA spec text. Set HIM_ALLOWED_HOSTS to the site's hostname, or every request gets a 403.
 """
 import os

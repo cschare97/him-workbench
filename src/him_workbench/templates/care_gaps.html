@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-head"><h1>Care gaps</h1>{% if d %}<span class="meta">Measurement period {{ d.period[0] }} to {{ d.period[1] }} · generated {{ d.generated }}</span>{% endif %}</div>
 {% if not d %}
-<p class="empty">No care-gap snapshot yet. Run <code>python3 care_gaps/report.py &lt;synthea fhir folder&gt; --json data/care_gaps.json</code> from the repo folder, then reload.</p>
+<p class="empty">No care-gap snapshot yet. Run <code>python3 -m him_workbench.care_gaps.report &lt;synthea fhir folder&gt; --json data/care_gaps.json</code> from the repo folder, then reload.</p>
 {% else %}
 <p class="lede">Diabetic patients checked against three public diabetes quality measures (2026 eCQM versions). Each gap shows the reason and a type, so you can tell a care problem from a documentation problem.</p>
 
@@ -11,7 +11,7 @@
 {% set paper = d.gap_kinds["documentation"] + d.gap_kinds["open order"] %}
 {% if total %}<p class="note info"><strong>{{ paper }} of {{ total }} gaps</strong> may not be missed care: {{ d.gap_kinds["documentation"] }} have a note saying the work was done, and {{ d.gap_kinds["open order"] }} were ordered but never resulted. Those are worth a chart review before outreach.</p>{% endif %}
 {% endif %}
-{% if d.injected %}<p class="note">This snapshot includes test scenarios added on purpose by <code>care_gaps/inject_gaps.py</code>. Patients with a "test scenario" tag were changed; see <code>care_gaps/injected_gaps.json</code> for exactly what changed.</p>{% endif %}
+{% if d.injected %}<p class="note">This snapshot includes test scenarios added on purpose by <code>src/him_workbench/care_gaps/inject_gaps.py</code>. Patients with a "test scenario" tag were changed; see <code>data/injected_gaps.json</code> for exactly what changed.</p>{% endif %}
 
 <h3>Summary</h3>
 <div class="table-scroll">

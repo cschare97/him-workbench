@@ -1,13 +1,9 @@
 """Tests for precompute_summaries.py with a fake model. Spec text here is made up."""
 import copy
-import sys
 from datetime import date
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from explain import explain
-from precompute_summaries import precompute
+from him_workbench.care_gaps.explain import explain
+from him_workbench.care_gaps.precompute_summaries import precompute
 
 SPECS = {"CMS122": {"url": "https://example.test/122", "meta": {"Copyright": "n", "Disclaimer": ""},
                     "sections": {"Numerator": "Made-up NCQA numerator.", "Guidance": "Made-up NCQA guidance."}}}
