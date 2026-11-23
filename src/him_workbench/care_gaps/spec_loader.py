@@ -20,8 +20,8 @@ Each measure's notice is printed with any text it shows, so check the current no
 after every fetch; stewards update their terms between versions.
 
 Usage (from the repo root; needs internet access to ecqi.healthit.gov):
-    python3 care_gaps/spec_loader.py fetch
-    python3 care_gaps/spec_loader.py show CMS122 Numerator
+    python3 -m him_workbench.care_gaps.spec_loader fetch
+    python3 -m him_workbench.care_gaps.spec_loader show CMS122 Numerator
 """
 import argparse
 import html
@@ -48,7 +48,7 @@ SECTIONS = ("Description", "Initial Population", "Denominator", "Denominator Exc
 META = ("eCQM Title", "CMS ID", "eCQM Version Number", "Measurement Period", "Measure Steward",
         "Copyright", "Disclaimer")
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[3]
 CACHE = REPO / "data" / "cache" / "ecqm"
 PARSED = CACHE / "specs.json"
 
@@ -136,7 +136,7 @@ def main():
     else:
         specs = load()
         if specs is None:
-            sys.exit("No specs cached yet. Run: python3 care_gaps/spec_loader.py fetch")
+            sys.exit("No specs cached yet. Run: python3 -m him_workbench.care_gaps.spec_loader fetch")
         spec = specs[args.measure]
         if args.section not in spec["sections"]:
             sys.exit(f"No section '{args.section}'. Available: {', '.join(spec['sections'])}")

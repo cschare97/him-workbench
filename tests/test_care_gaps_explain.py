@@ -2,12 +2,8 @@
 
 The spec text here is made up; real spec text is copyrighted and never stored in this repo.
 """
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from explain import check_grounding, cited_sections, explain, select_sections
+from him_workbench.care_gaps.explain import check_grounding, cited_sections, explain, select_sections
 
 SPECS = {
     "CMS122": {"url": "https://example.test/122", "meta": {"Copyright": "Notice 122"},
@@ -158,7 +154,7 @@ def test_saying_met_for_a_gap_is_caught():
 
 
 def test_prompt_states_outcome_and_why_note_does_not_count():
-    from explain import build_prompt
+    from him_workbench.care_gaps.explain import build_prompt
     prompt = build_prompt(DOC_GAP, DOC_GAP["evidence"], [])
     assert "has a care gap" in prompt and "invisible to the measure" in prompt
     assert "is 'met'" not in prompt.split("Project rules:")[1]
@@ -167,7 +163,7 @@ def test_prompt_states_outcome_and_why_note_does_not_count():
 # --- 5d: project rules get their own [R#] tags ---
 
 def test_rules_are_tagged_and_citable():
-    from explain import project_rules
+    from him_workbench.care_gaps.explain import project_rules
     rules = project_rules(DOC_GAP)
     assert [r["id"] for r in rules] == ["R1", "R2", "R3"]
     answer = ("A note on 2026-10-07 mentions an A1c [E2]. The measure only sees structured results [R2]. "
@@ -176,13 +172,13 @@ def test_rules_are_tagged_and_citable():
 
 
 def test_passing_patient_has_no_next_step_rule():
-    from explain import project_rules
+    from him_workbench.care_gaps.explain import project_rules
     passing = {"measure": "CMS122 A1c >9%", "status": "not met", "gap": False, "kind": "", "reason": "most recent A1c 6.8%"}
     assert [r["label"] for r in project_rules(passing)] == ["Measure logic result"]
 
 
 def test_prompt_reserves_s_tags_for_spec_text():
-    from explain import build_prompt
+    from him_workbench.care_gaps.explain import build_prompt
     prompt = build_prompt(DOC_GAP, DOC_GAP["evidence"], cited_sections(DOC_GAP, SPECS, public=False))
     assert "[R3] Suggested next step" in prompt and "[S#] only for what the official spec text" in prompt
 
@@ -193,20 +189,20 @@ SNAP = {"patients": [{"id": "p1", "name": "Carlos Wolf", "scenario": "a1c_in_not
 
 
 def test_page_data_finds_patient_and_measure():
-    from explain import page_data
+    from him_workbench.care_gaps.explain import page_data
     v = page_data(SNAP, "p1", "CMS122", specs=SPECS)
     assert v["patient_name"] == "Carlos Wolf" and v["kind_label"] == "Documentation gap" and v["gap"]
     assert v["builtin"].startswith("CMS122") and v["mode"] == "fallback"
 
 
 def test_page_data_unknown_patient_or_measure_is_none():
-    from explain import page_data
+    from him_workbench.care_gaps.explain import page_data
     assert page_data(SNAP, "nope", "CMS122", specs=SPECS) is None
     assert page_data(SNAP, "p1", "CMS999", specs=SPECS) is None
 
 
 def test_page_data_public_hides_ncqa_text():
-    from explain import page_data
+    from him_workbench.care_gaps.explain import page_data
     v = page_data(SNAP, "p1", "CMS122", public=True, specs=SPECS)
     assert v["public"] and all(s["text"] is None for s in v["sections"])
 
@@ -214,7 +210,7 @@ def test_page_data_public_hides_ncqa_text():
 # --- fixes from the first look at the page ---
 
 def test_missing_care_and_out_of_range_get_different_next_steps():
-    from explain import next_step
+    from him_workbench.care_gaps.explain import next_step
     missing = {"measure": "CMS131 Eye exam", "status": "not met", "gap": True, "kind": "care",
                "reason": "no structured retinal exam on file for the period"}
     high = {"measure": "CMS122 A1c >9%", "status": "met", "gap": True, "kind": "care",
@@ -224,6 +220,6 @@ def test_missing_care_and_out_of_range_get_different_next_steps():
 
 
 def test_rule_text_reads_as_a_sentence():
-    from explain import project_rules
+    from him_workbench.care_gaps.explain import project_rules
     r1 = project_rules(DOC_GAP)[0]["text"]
     assert "measure (counts against the clinic). No structured" in r1 and r1.endswith(".")

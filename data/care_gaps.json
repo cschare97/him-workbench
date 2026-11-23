@@ -120,12 +120,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, which counts as a result greater than 9% [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -263,12 +258,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a gap in the required eGFR and uACR tests during the measurement period [R1]. The clinic should reach out to the patient to schedule these missing tests or exams [R2]. The patient's eGFR from 2025-12-17 is 134.48, which is within the acceptable range but does not meet the measure requirements [E6]. The uACR from the same date is 1.31, also within the acceptable range but insufficient for the measure [E7]."
-     }
+     ]
     }
    ],
    "gap_count": 2
@@ -333,12 +323,7 @@
        "text": "Outside lab results reviewed. Hemoglobin A1c 6.1% drawn at an outside lab on 2026-10-07. Scanned copy filed under Media. [Test scenario added by inject_gaps.py]",
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure because there is no structured A1c result in the period, even though an A1c was mentioned in a note on 2026-10-07 [E6]. According to the rules, a value in a note does not count as a structured result [R1]. The patient's most recent HbA1c was 6.06 on 2025-10-01 [E5], but this does not affect the current measure result. The suggested next step is to review the chart and enter the A1c result from the note as structured data [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -395,12 +380,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -522,12 +502,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, which counts as a result greater than 9% [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -665,12 +640,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a gap in the required eGFR and uACR tests during the measurement period [R1]. The clinic should reach out to the patient to schedule these missing tests or exams [R2]. The patient's eGFR was last recorded on 2025-12-07 with a value of 138.94, but the uACR was also last recorded on the same date with a value of 12.07 [E6]. These values do not meet the measure's requirements for the current period [S1]."
-     }
+     ]
     }
    ],
    "gap_count": 2
@@ -727,12 +697,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, which counts as a result greater than 9% [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -870,12 +835,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a gap in the required eGFR and uACR tests during the measurement period [R1]. The clinic should reach out to the patient to schedule these missing tests or exams [R2]. The patient's eGFR from 2025-12-06 is 129.94, which does not meet the eGFR requirement for this measure [E6]. The uACR from the same date is 0.55, but this alone does not fulfill the uACR requirement as it was outside the measurement period [E7]."
-     }
+     ]
     }
    ],
    "gap_count": 2
@@ -932,12 +892,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, which counts as a result greater than 9% [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -1075,12 +1030,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a gap in the required eGFR and uACR tests during the measurement period [R1]. The clinic should reach out to the patient to schedule these missing tests or exams [R2]. The patient's most recent eGFR was 69.68 on 2025-12-10, which is outside the required period [E6]. The uACR was 7.14 on the same date, also outside the required period [E7]."
-     }
+     ]
     }
    ],
    "gap_count": 2
@@ -1137,12 +1087,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has an A1c of 11.8% on 2026-07-30, which is above the threshold of 9%. [E5] The patient currently has a care gap on this measure. [R1] The care team should review this out-of-range result. [R2]"
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -1199,12 +1144,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -1334,12 +1274,7 @@
        "text": "Outside lab results reviewed. Hemoglobin A1c 6.0% drawn at an outside lab on 2026-10-19. Scanned copy filed under Media. [Test scenario added by inject_gaps.py]",
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure because there is no structured A1c result in the period, even though an A1c was mentioned in a note on 2026-10-19 [E6]. This counts as a gap because the measure only sees structured results [R2]. The clinic should review the chart, find the outside result or report, and enter it as structured data so the measure can see it [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -1396,12 +1331,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -1523,12 +1453,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, which counts as a result greater than 9% [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -1666,12 +1591,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap for eGFR and uACR tests during the measurement period [R1]. The next step is to contact the patient to schedule these missing tests or exams [R2]. The patient's most recent eGFR was 143.21 on 2025-12-16, and the uACR was 3.81 on the same date, but these do not meet the measure requirements as they are outside the specified period [E6]."
-     }
+     ]
     }
    ],
    "gap_count": 2
@@ -1785,12 +1705,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -1969,12 +1884,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 65 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 1992, and has not had a retinal eye exam in the period or the year before [E3, E5]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -2169,12 +2079,7 @@
        "text": "...- ocular slit lamp examination (procedure) - indirect gonioscopy (procedure) - camera fundoscopy (procedure) - diabetic retinal eye exam (procedure) The patient was prescribed the following medications: - tropicamide 5 mg/ml ophthalmic solution",
        "id": "E8"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "This patient has a care gap on the measure [R1]. The most recent outpatient visit was on 2026-08-07, and there is no retinal eye exam on file for the period [E5]. A note from 2026-05-09 indicates that the patient had an eye exam, but the outside report has not been entered as structured data [E7]. Review the chart and enter the outside report as structured data to address the gap [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -2353,12 +2258,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -2577,12 +2477,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -2841,12 +2736,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 62 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 2006, and has not had a retinal eye exam in the period or the year before [E3, E5]. There is no record of a diabetic retinopathy diagnosis [E6]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -3033,12 +2923,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -3233,12 +3118,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 68 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 2002, and has not had a retinal eye exam in the period or the year before [E3, E5]. There is no record of a diabetic retinopathy diagnosis [E6]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -3441,12 +3321,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -3713,12 +3588,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -3856,12 +3726,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has an A1c of 11.3% on 2026-11-16, which is above the threshold of 9%. [E5] The patient currently has a care gap on this measure. [R1] The care team should review this out-of-range result. [R2]"
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -4113,12 +3978,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -4297,12 +4157,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -4497,12 +4352,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -4737,12 +4587,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 68 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 2009, and has not had a retinal eye exam in the period or the year before [E3, E5]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -5001,12 +4846,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -5136,12 +4976,7 @@
        "text": "Outside lab results reviewed. Hemoglobin A1c 6.9% drawn at an outside lab on 2026-10-22. Scanned copy filed under Media. [Test scenario added by inject_gaps.py]",
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure because there is no structured A1c result in the period, even though an A1c was mentioned in a note on 2026-10-22 [E6]. This counts as a gap because the measure only sees structured results [R2]. The clinic should review the chart, find the outside result or report, and enter it as structured data so the measure can see it [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -5588,12 +5423,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -5788,12 +5618,7 @@
        "text": "...- ocular slit lamp examination (procedure) - indirect gonioscopy (procedure) - camera fundoscopy (procedure) - diabetic retinal eye exam (procedure) The patient was prescribed the following medications: - tropicamide 5 mg/ml ophthalmic solution",
        "id": "E8"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "This patient has a care gap on the measure [R1]. The most recent note from 2026-06-12 indicates an eye exam was performed, but the structured result is missing [E7]. Entering the outside report as structured data would resolve this gap [R1]. Review the chart for the outside result or report and enter it as structured data [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -5972,12 +5797,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -6196,12 +6016,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -6759,12 +6574,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -6894,12 +6704,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, and an A1c was ordered on 2026-07-30 but no result has come back [R2]. We need to follow up on the open order with the lab or the patient to ensure a result is obtained [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -7167,12 +6972,7 @@
        "text": "...- ocular slit lamp examination (procedure) - indirect gonioscopy (procedure) - camera fundoscopy (procedure) - diabetic retinal eye exam (procedure) The patient was prescribed the following medications: - tropicamide 5 mg/ml ophthalmic solution",
        "id": "E8"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. The most recent note from 2026-05-05 indicates an eye exam was performed, but a structured retinal exam result is not on file [E7, E8]. Review the chart to find the outside report and enter it as structured data [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -7302,12 +7102,7 @@
        "text": "Outside lab results reviewed. Hemoglobin A1c 7.5% drawn at an outside lab on 2026-10-05. Scanned copy filed under Media. [Test scenario added by inject_gaps.py]",
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure because there is no structured A1c result in the period, even though an A1c was mentioned in a note on 2026-10-05 [E6]. According to the rules, a value in a note does not count as a structured result [R1]. The patient's most recent HbA1c was 7.41 on 2025-09-29 [E5], but this does not affect the current measure result. The clinic should review the chart and enter the A1c result from the note as structured data [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -7510,12 +7305,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure because there is no structured A1c result in the period [R1]. An A1c was ordered on 2026-09-03 but no result has come back [R1]. It is important to follow up on the open order with the lab or the patient to ensure a result is obtained [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -7807,12 +7597,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 61 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 2007, and has not had a retinal eye exam in the period or the year before [E3, E5]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -7934,12 +7719,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has an A1c of 9.9% on 2026-01-20, which is above the threshold of 9%. [E5] The patient currently has a care gap on this measure. [R1] It is recommended to review this out-of-range result with the care team. [R2]"
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -8199,12 +7979,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]. The patient is 70 years old, within the age range of 18-75 for this measure [E1, E2]. The patient has a history of diabetes, diagnosed in 1993, and has not been diagnosed with diabetic retinopathy [E3, E6]. The most recent outpatient visit was on 2026-05-24 [E4]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -8439,12 +8214,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -8751,12 +8521,7 @@
        "text": "...- ocular slit lamp examination (procedure) - indirect gonioscopy (procedure) - camera fundoscopy (procedure) - diabetic retinal eye exam (procedure) - optical coherence tomography of retina (procedure) The following lab reports were completed: - optical co...",
        "id": "E8"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "This patient has a care gap on the measure [R1]. The most recent note from 2026-03-28 indicates an eye exam was performed, but the structured result is missing [E7]. Entering the outside report as structured data would resolve this gap [R1]. Review the chart for the outside result or report and enter it as structured data [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -9023,12 +8788,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -9304,12 +9064,7 @@
        "text": null,
        "id": "E7"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a gap in the required uACR test during the measurement period [R1]. The next step is to contact the patient to schedule this test [R2]. The most recent uACR result was from November 28, 2025, which is outside the measurement period [E7]."
-     }
+     ]
     }
    ],
    "gap_count": 1
@@ -9423,12 +9178,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -9607,12 +9357,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -9742,12 +9487,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured A1c result in the period, and an A1c ordered on 2026-10-11 has not returned a result [R1, R2]. The next step is to follow up on the open order with the lab or the patient to ensure a result comes back [R3]."
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -10079,12 +9819,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -10271,12 +10006,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure as there is no structured retinal exam on file for the period [R1]. The clinic should reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -10455,12 +10185,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -10655,12 +10380,7 @@
        "text": null,
        "id": "E6"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has a care gap on this measure [R1]. There is no structured retinal exam on file for the period [E5]. The next step is to reach out to the patient to schedule the missing test or exam [R2]."
-     }
+     ]
     },
     {
      "measure": "CMS951 Kidney health",
@@ -10790,12 +10510,7 @@
        "text": null,
        "id": "E5"
       }
-     ],
-     "summary": {
-      "model": "qwen2.5:7b",
-      "date": "2026-11-22",
-      "text": "The patient has an A1c of 11.7% on 2026-11-08, which is above the threshold of 9%. [E5] The patient currently has a care gap on this measure. [R1] The care team should review this out-of-range result. [R2]"
-     }
+     ]
     },
     {
      "measure": "CMS131 Eye exam",
@@ -22157,11 +21872,5 @@
    ],
    "gap_count": 0
   }
- ],
- "summaries": {
-  "model": "qwen2.5:7b",
-  "date": "2026-11-22",
-  "kept": 57,
-  "rejected by check": 2
- }
+ ]
 }

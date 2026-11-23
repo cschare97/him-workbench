@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from fhir_load import (
+from .fhir_load import (
     A1C_LOINC, DIABETES_CODES, EGFR_LOINC, HOSPICE_PALLIATIVE_WORDS,
     RETINAL_EXAM_SNOMED, UACR_LOINC,
 )

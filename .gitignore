@@ -24,3 +24,5 @@ credentials*
 *.egg-info/
 *.tgz
 !data/care_gaps.json
+
+!data/injected_gaps.json

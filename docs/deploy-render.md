@@ -7,7 +7,7 @@ runs `him_workbench.public`, which turns on public mode (`HIM_PUBLIC=1`):
   Everything else is a 404, every write is refused, and `/` goes to `/care-gaps`.
 - Requests are accepted only for localhost and the hostnames in `HIM_ALLOWED_HOSTS`.
 - No model is ever called. The Explain page shows summaries written ahead of time by
-  `care_gaps/precompute_summaries.py` and re-checks each one before showing it.
+  `him_workbench.care_gaps.precompute_summaries` and re-checks each one before showing it.
 - NCQA spec text (CMS122, CMS131) is never downloaded or shown. The build fetches the CMS951 spec
   only, which NKF's terms allow showing with its notice.
 - Data is synthetic (Synthea). Nothing is written to disk at runtime.
@@ -18,7 +18,7 @@ runs `him_workbench.public`, which turns on public mode (`HIM_PUBLIC=1`):
 
    ```bash
    cd care_gaps && python3 report.py ~/synthea/output_caregap_injected --json ../data/care_gaps.json --scenarios injected_gaps.json && cd ..
-   python3 care_gaps/precompute_summaries.py --model qwen2.5:7b
+   python3 -m him_workbench.care_gaps.precompute_summaries --model qwen2.5:7b
    ```
 
 2. Try public mode locally:

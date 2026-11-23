@@ -1,13 +1,9 @@
 """Edge-case tests for the diabetes measures, using hand-built patients."""
-import sys
 from datetime import date
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from fhir_load import (A1C_LOINC, EGFR_LOINC, RETINAL_EXAM_SNOMED, UACR_LOINC,
+from him_workbench.care_gaps.fhir_load import (A1C_LOINC, EGFR_LOINC, RETINAL_EXAM_SNOMED, UACR_LOINC,
                        Condition, Observation, PatientFacts)
-from measures import cms122, cms131, cms951
+from him_workbench.care_gaps.measures import cms122, cms131, cms951
 
 
 def make_patient(birth=date(1970, 5, 1), deceased=None, diabetes=True, visit=True):
@@ -143,7 +139,7 @@ def test_kidney_met_with_both():
 # --- page snapshot ---
 
 def test_snapshot_marks_gaps_and_sorts_worst_first():
-    from report import to_json
+    from him_workbench.care_gaps.report import to_json
     rows = [
         {"patient_id": "a", "name": "Ann", "measure": "CMS122 A1c >9%", "status": "not met", "reason": "ok"},
         {"patient_id": "a", "name": "Ann", "measure": "CMS131 Eye exam", "status": "met", "reason": "ok"},
@@ -159,7 +155,7 @@ def test_snapshot_marks_gaps_and_sorts_worst_first():
 
 
 def test_clean_name_drops_synthea_numbers():
-    from fhir_load import clean_name
+    from him_workbench.care_gaps.fhir_load import clean_name
     assert clean_name("Annamae625 Luciana251 Beatty507") == "Annamae Luciana Beatty"
     assert clean_name("Julianne852 O'Reilly797") == "Julianne O'Reilly"
     assert clean_name("Pedro316 Martín25 Farías160") == "Pedro Martín Farías"
@@ -186,7 +182,7 @@ def test_note_from_last_year_does_not_count():
 
 
 def test_a1c_ordered_without_result_is_open_order():
-    from fhir_load import A1C_LOINC as code
+    from him_workbench.care_gaps.fhir_load import A1C_LOINC as code
     p = make_patient()
     p.orders.append((code, date(2026, 4, 2), "active"))
     result = cms122(p)
@@ -265,13 +261,13 @@ def test_cms951_esrd_resolved_before_period_is_not_excluded():
 # --- evidence (5b) ---
 
 def _ev(results, prefix):
-    from measures import evaluate  # noqa: F401
+    from him_workbench.care_gaps.measures import evaluate  # noqa: F401
     return next(r for r in results if r.measure.startswith(prefix)).evidence
 
 
 def test_evidence_ids_are_sequential_and_json_safe():
     import json
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     a1c(p, date(2026, 9, 1), 7.0)
     for r in evaluate(p):
@@ -280,7 +276,7 @@ def test_evidence_ids_are_sequential_and_json_safe():
 
 
 def test_missing_a1c_shows_last_result_before_period():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     a1c(p, date(2025, 11, 3), 7.9)
     labels = {e["label"]: e for e in _ev(evaluate(p), "CMS122")}
@@ -289,12 +285,12 @@ def test_missing_a1c_shows_last_result_before_period():
 
 
 def test_no_a1c_ever_is_stated_as_absent():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     assert any(e["type"] == "absent" and "HbA1c" in e["label"] for e in _ev(evaluate(make_patient()), "CMS122"))
 
 
 def test_documentation_gap_evidence_includes_note_excerpt():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     p.notes.append((date(2026, 5, 1), "Long visit text. " * 20 + "Outside lab: Hemoglobin A1c 7.4%. " + "More. " * 30))
     notes = [e for e in _ev(evaluate(p), "CMS122") if e["type"] == "note"]
@@ -302,7 +298,7 @@ def test_documentation_gap_evidence_includes_note_excerpt():
 
 
 def test_many_a1c_results_are_capped_with_a_summary():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     for m in range(1, 10):
         a1c(p, date(2026, m, 1), 7.0)
@@ -313,7 +309,7 @@ def test_many_a1c_results_are_capped_with_a_summary():
 
 
 def test_cms951_evidence_states_its_own_age_range_and_exclusion():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     p.conditions.append(Condition("46177005", "End-stage renal disease (disorder)", date(2023, 1, 1), None))
     ev = _ev(evaluate(p), "CMS951")
@@ -322,7 +318,7 @@ def test_cms951_evidence_states_its_own_age_range_and_exclusion():
 
 
 def test_evidence_does_not_change_results():
-    from measures import evaluate
+    from him_workbench.care_gaps.measures import evaluate
     p = make_patient()
     a1c(p, date(2026, 9, 1), 9.6)
     statuses = [(r.measure, r.status, r.kind) for r in evaluate(p)]

@@ -1,14 +1,10 @@
 """Tests for inject_gaps.py on a small hand-built bundle."""
 import random
-import sys
 from datetime import date
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from fhir_load import facts_from_bundle
-from inject_gaps import apply, eligible, trim
-from measures import cms122, cms131
+from him_workbench.care_gaps.fhir_load import facts_from_bundle
+from him_workbench.care_gaps.inject_gaps import apply, eligible, trim
+from him_workbench.care_gaps.measures import cms122, cms131
 
 
 def bundle():
