@@ -484,7 +484,10 @@ def test_patient_name_with_markup_is_escaped_on_the_page(tmp_path):
     app = create_app(patients=PTS + [tricky], model=None, texture_dir=tmp_path / "tex")
     page = app.test_client().get("/patients", headers=HDR).data
     assert b"<script>alert(1)</script>" not in page   # not rendered as live markup
-    assert b"49" not in page                            # not evaluated as a template expression
+    # The page carries a random per-run token, which can contain "49" by chance; take it out before checking.
+    page_without_token = page.replace(app.config["HIM_TOKEN"].encode(), b"")
+    assert b"49" not in page_without_token              # not evaluated as a template expression
+    assert b"{{7*7}}" in page                            # the template-like text is shown literally
     assert b"&lt;script&gt;" in page or b"&amp;lt;" in page or b"alert(1)" in page  # escaped, still visible as text
 
 
