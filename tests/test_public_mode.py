@@ -142,3 +142,79 @@ def test_print_styles_unpin_header_and_keep_notice():
     assert ".top, .strip { position: static" in block
     hidden = [line for line in block.splitlines() if "display: none" in line]
     assert hidden and not any(".strip" in line for line in hidden)   # the synthetic-data notice always prints
+
+
+# ---- data-quality notes ----
+
+def test_data_quality_view_counts_cms122_passes_on_low_values():
+    dq = {"patients": [
+        {"id": "a", "name": "A", "low_count": 3, "latest_in_period_low": True, "notes": ["n"]},
+        {"id": "b", "name": "B", "low_count": 1, "latest_in_period_low": True, "notes": ["n"]},
+        {"id": "c", "name": "C", "low_count": 0, "latest_in_period_low": False, "repeat_runs": 1, "notes": ["n"]},
+    ]}
+    d = {"patients": [
+        {"id": "a", "results": [{"measure": "CMS122 A1c >9%", "status": "not met"}]},   # passing (inverse)
+        {"id": "b", "results": [{"measure": "CMS122 A1c >9%", "status": "excluded"}]},
+    ]}
+    v = webapp.data_quality_view(dq, d)
+    assert [p["id"] for p in v["passing_on_low"]] == ["a"]
+    assert [p["id"] for p in v["low_list"]] == ["a", "b"]
+    assert webapp.data_quality_view(None, d) is None
+
+
+def test_care_gaps_page_shows_data_quality_notes(public):
+    html = get(public, "/care-gaps").get_data(as_text=True)
+    if webapp.load_data_quality(webapp.Path(webapp.__file__).resolve().parents[2]):
+        assert "Data-quality notes" in html and "pass CMS122 on a most recent A1c under 4%" in html
+
+
+# ---- rate limit ----
+
+class FakeClock:
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+
+def test_rate_limiter_window_and_retry_after():
+    clock = FakeClock()
+    lim = webapp.RateLimiter(limit=2, window=60, clock=clock)
+    assert lim.allow("x") == 0 and lim.allow("x") == 0
+    wait = lim.allow("x")
+    assert 1 <= wait <= 61
+    assert lim.allow("y") == 0                       # other clients are not affected
+    clock.t += 61
+    assert lim.allow("x") == 0                       # the window slid past the old hits
+
+
+def test_rate_limiter_memory_is_bounded():
+    lim = webapp.RateLimiter(limit=5, max_clients=3, clock=FakeClock())
+    for k in "abcde":
+        lim.allow(k)
+    assert list(lim.hits) == ["c", "d", "e"]
+
+
+def test_public_mode_returns_429_per_client(monkeypatch):
+    monkeypatch.setenv("HIM_PUBLIC", "1")
+    monkeypatch.setenv("HIM_ALLOWED_HOSTS", HOST)
+    monkeypatch.setenv("HIM_RATE_LIMIT", "3")
+    client = create_app().test_client()
+    alice = {"True-Client-IP": "203.0.113.5"}
+    for _ in range(3):
+        assert get(client, "/about", headers=alice).status_code == 200
+    r = get(client, "/about", headers=alice)
+    assert r.status_code == 429 and int(r.headers["Retry-After"]) >= 1
+    assert get(client, "/about", headers={"True-Client-IP": "203.0.113.9"}).status_code == 200
+    assert get(client, "/static/style.css", headers=alice).status_code == 200   # static files are not counted
+
+
+def test_x_forwarded_for_does_not_pick_the_client(monkeypatch):
+    monkeypatch.setenv("HIM_PUBLIC", "1")
+    monkeypatch.setenv("HIM_ALLOWED_HOSTS", HOST)
+    monkeypatch.setenv("HIM_RATE_LIMIT", "2")
+    client = create_app().test_client()
+    for i in range(2):
+        get(client, "/about", headers={"X-Forwarded-For": f"198.51.100.{i}"})
+    assert get(client, "/about", headers={"X-Forwarded-For": "198.51.100.77"}).status_code == 429
